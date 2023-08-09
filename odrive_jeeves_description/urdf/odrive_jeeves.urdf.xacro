@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="diffdrive_robot">
+
+  <xacro:arg name="prefix" default="" />
+  <xacro:arg name="use_hardware" default="true"/>
+  <xacro:arg name="enable_joint0" default="true" />
+  <xacro:arg name="enable_joint1" default="true" />
+
+  <xacro:include filename="$(find jeeves_sim_description)/urdf/jeeves_sim.xacro" />
+
+  <xacro:include filename="$(find odrive_demo_description)/urdf/odrive.ros2_control.xacro" />
+
+  <xacro:odrive_ros2_control
+    name="ODriveDiffBot"
+    serial_number="2054368F424D"
+    joint0_name="$(arg prefix)Left_wheel_joint"
+    joint1_name="$(arg prefix)Right_wheel_joint" />
+
+</robot>

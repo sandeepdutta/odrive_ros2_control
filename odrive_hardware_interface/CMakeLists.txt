@@ -28,13 +28,22 @@ else()
   message( FATAL_ERROR "Failed to find libusb-1.0" )
 endif()
 
+pkg_search_module(LIBJSONCPP REQUIRED jsoncpp)
+if(LIBJSONCPP_FOUND)
+  include_directories(SYSTEM ${JSONCPP_INCLUDE_DIRS})
+else()
+  message( FATAL_ERROR "Failed to find libjsoncpp" )
+endif()
+
 ament_auto_add_library(
-  odrive_usb SHARED
-  src/odrive_usb.cpp
+  odrive_endpoint SHARED
+  src/odrive_endpoint.cpp
 )
+
 target_link_libraries(
-  odrive_usb
+  odrive_endpoint
   ${LIBUSB1_LIBRARIES}
+  ${LIBJSONCPP_LIBRARIES}
 )
 
 ament_auto_add_library(

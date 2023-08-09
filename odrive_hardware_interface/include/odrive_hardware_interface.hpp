@@ -15,12 +15,12 @@
 #pragma once
 
 #include <cmath>
-
+#include <map>
 #include "hardware_interface/base_interface.hpp"
 #include "hardware_interface/system_interface.hpp"
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
-#include "odrive_hardware_interface/odrive_usb.hpp"
-#include "odrive_hardware_interface/visibility_control.hpp"
+#include "odrive.hpp"
+#include "visibility_control.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 #define AXIS_STATE_IDLE 1
@@ -35,7 +35,6 @@
     }                                                                                      \
   } while (0)
 
-using namespace odrive;
 using hardware_interface::return_type;
 
 namespace odrive_hardware_interface
@@ -77,7 +76,6 @@ public:
   return_type write() override;
 
 private:
-  ODriveUSB * odrive;
 
   std::vector<std::vector<int64_t>> serial_numbers_;
   std::vector<int> axes_;
@@ -107,7 +105,7 @@ private:
     VELOCITY = 2,
     POSITION = 3
   };
-
+  std::map<uint64_t, odrive *>  odrives;
   std::vector<integration_level_t> control_level_;
 };
 }  // namespace odrive_hardware_interface
