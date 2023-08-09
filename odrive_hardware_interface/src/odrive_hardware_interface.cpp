@@ -14,6 +14,8 @@ return_type ODriveHardwareInterface::configure(const hardware_interface::Hardwar
 
   serial_numbers_.resize(2);
   torque_constants_.resize(info_.joints.size());
+  reverse_control_.resize(info_.joints.size(), false);
+  enable_watchdogs_.resize(info_.joints.size());
   hw_vbus_voltages_.resize(info_.sensors.size(), std::numeric_limits<double>::quiet_NaN());
 
   hw_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
@@ -38,7 +40,6 @@ return_type ODriveHardwareInterface::configure(const hardware_interface::Hardwar
   for (const hardware_interface::ComponentInfo & joint : info_.joints) {
     serial_numbers_[1].emplace_back(std::stoull(joint.parameters.at("serial_number"), 0, 16));
     axes_.emplace_back(std::stoi(joint.parameters.at("axis")));
-    enable_watchdogs_.emplace_back(std::stoi(joint.parameters.at("enable_watchdog")));
   }
 
   /* instantiate and initialize the odrives */
@@ -61,6 +62,8 @@ return_type ODriveHardwareInterface::configure(const hardware_interface::Hardwar
     std::string axis = string("axis")+std::to_string(axes_[i]);
     readOdriveData(od->endpoint, od->json,axis + ".motor.config.torque_constant",torque_constant);
     torque_constants_[i] = torque_constant;
+    enable_watchdogs_[i] = std::stoi(info_.joints[i].parameters.at("enable_watchdog")) ? true : false;
+    reverse_control_[i]  = std::stoi(info_.joints[i].parameters.at("reverse_control")) ? true : false;
     if (enable_watchdogs_[i]) {
       float wd_timeout = std::stof(info_.joints[i].parameters.at("watchdog_timeout"));
       writeOdriveData(od->endpoint, od->json, axis + ".config.watchdog_timeout", wd_timeout);
@@ -71,6 +74,7 @@ return_type ODriveHardwareInterface::configure(const hardware_interface::Hardwar
 
   control_level_.resize(info_.joints.size(), integration_level_t::UNDEFINED);
   status_ = hardware_interface::status::CONFIGURED;
+  ROS_INFO("Configured");
   return return_type::OK;
 }
 
@@ -92,7 +96,7 @@ std::vector<hardware_interface::StateInterface> ODriveHardwareInterface::export_
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, "fet_temperature", &hw_fet_temperatures_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, "motor_temperature", &hw_motor_temperatures_[i]));
   }
-
+  ROS_INFO("States exported ..");
   return state_interfaces;
 }
 
@@ -105,7 +109,7 @@ ODriveHardwareInterface::export_command_interfaces()
     command_interfaces.emplace_back(hardware_interface::CommandInterface(info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &hw_commands_velocities_[i]));
     command_interfaces.emplace_back(hardware_interface::CommandInterface(info_.joints[i].name, hardware_interface::HW_IF_POSITION, &hw_commands_positions_[i]));
   }
-
+  ROS_INFO("Commands exported ..");
   return command_interfaces;
 }
 
@@ -113,6 +117,7 @@ return_type ODriveHardwareInterface::prepare_command_mode_switch(
   const std::vector<std::string> & start_interfaces,
   const std::vector<std::string> & stop_interfaces)
 {
+  ROS_INFO("Prepare command mode switch called");
   for (std::string key : stop_interfaces) {
     for (size_t i = 0; i < info_.joints.size(); i++) {
       if (key.find(info_.joints[i].name) != std::string::npos) {
@@ -123,24 +128,19 @@ return_type ODriveHardwareInterface::prepare_command_mode_switch(
 
   for (std::string key : start_interfaces) {
     for (size_t i = 0; i < info_.joints.size(); i++) {
-      switch (control_level_[i]) {
-        case integration_level_t::UNDEFINED:
-          if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_EFFORT) {
-            control_level_[i] = integration_level_t::EFFORT;
-          }
+      if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_EFFORT) {
+        ROS_INFO("Command interface switching to %s for joint %s",key.c_str(),info_.joints[i].name.c_str());
+        control_level_[i] = integration_level_t::EFFORT;
+      }
 
-        case integration_level_t::EFFORT:
-          if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_VELOCITY) {
-            control_level_[i] = integration_level_t::VELOCITY;
-          }
+      if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_VELOCITY) {
+        ROS_INFO("Command interface switching to %s for joint %s",key.c_str(),info_.joints[i].name.c_str());
+        control_level_[i] = integration_level_t::VELOCITY;
+      }
 
-        case integration_level_t::VELOCITY:
-          if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_POSITION) {
-            control_level_[i] = integration_level_t::POSITION;
-          }
-
-        case integration_level_t::POSITION:
-          break;
+      if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_POSITION) {
+        ROS_INFO("Command interface switching to %s for joint %s",key.c_str(),info_.joints[i].name.c_str());
+        control_level_[i] = integration_level_t::POSITION;
       }
     }
   }
@@ -149,8 +149,9 @@ return_type ODriveHardwareInterface::prepare_command_mode_switch(
 }
 
 return_type ODriveHardwareInterface::perform_command_mode_switch(
-  const std::vector<std::string> &, const std::vector<std::string> &)
+  const std::vector<std::string> &a, const std::vector<std::string> &b)
 {
+  ROS_INFO("Perform commnad mode switch called ..a %d , b%d", a.size(), b.size());
   for (size_t i = 0; i < info_.joints.size(); i++) {
     float input_torque, input_vel, input_pos;
     uint8_t requested_state;
@@ -168,7 +169,7 @@ return_type ODriveHardwareInterface::perform_command_mode_switch(
       case integration_level_t::EFFORT:
         hw_commands_efforts_[i] = hw_efforts_[i];
         writeOdriveData(od->endpoint, od->json, axis + ".controller.config.control_mode",control_mode);
-        input_torque = hw_commands_efforts_[i];
+        input_torque = (hw_commands_efforts_[i] * (reverse_control_[i] ? -1.0 : 1.0));
         writeOdriveData(od->endpoint,od->json, axis + ".controller.input_torque",input_torque);
         requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL;
         writeOdriveData(od->endpoint, od->json, axis + ".requested_state",requested_state);
@@ -178,9 +179,9 @@ return_type ODriveHardwareInterface::perform_command_mode_switch(
         hw_commands_velocities_[i] = hw_velocities_[i];
         hw_commands_efforts_[i] = 0;
         writeOdriveData(od->endpoint, od->json, axis + ".controller.config.control_mode",control_mode);
-        input_vel = hw_commands_velocities_[i] / 2 / M_PI;
+        input_vel = (hw_commands_velocities_[i] / 2 / M_PI) * (reverse_control_[i] ? -1.0 : 1.0);
         writeOdriveData(od->endpoint, od->json, axis + ".controller.input_vel",input_vel);
-        input_torque = hw_commands_efforts_[i];
+        input_torque = hw_commands_efforts_[i] * (reverse_control_[i] ? -1.0 : 1.0);
         writeOdriveData(od->endpoint, od->json, axis + ".controller.input_torque",input_torque);
         requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL;
         writeOdriveData(od->endpoint, od->json, axis + ".requested_state",requested_state);
@@ -191,11 +192,11 @@ return_type ODriveHardwareInterface::perform_command_mode_switch(
         hw_commands_velocities_[i] = 0;
         hw_commands_efforts_[i] = 0;
         writeOdriveData(od->endpoint, od->json, axis + ".controller.config.control_mode",control_mode);
-        input_pos = hw_commands_positions_[i] / 2 / M_PI;
+        input_pos = (hw_commands_positions_[i] / 2 / M_PI) * (reverse_control_[i] ? -1.0 : 1.0);
         writeOdriveData(od->endpoint, od->json, axis + ".controller.input_pos", input_pos);
-        input_vel = hw_commands_velocities_[i] / 2 / M_PI;
+        input_vel = (hw_commands_velocities_[i] / 2 / M_PI) * (reverse_control_[i] ? -1.0 : 1.0);
         writeOdriveData(od->endpoint, od->json, axis + ".controller.input_vel", input_vel);
-        input_torque = hw_commands_efforts_[i];
+        input_torque = hw_commands_efforts_[i] * (reverse_control_[i] ? -1.0 : 1.0);
         writeOdriveData(od->endpoint, od->json, axis + ".controller.input_torque", input_torque);
         requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL;
         writeOdriveData(od->endpoint, od->json, axis + ".requested_state",requested_state);
@@ -208,18 +209,25 @@ return_type ODriveHardwareInterface::perform_command_mode_switch(
 
 return_type ODriveHardwareInterface::start()
 {
-  for (size_t i = 0; i < info_.joints.size(); i++) {
-    std::string axis = "axis" + std::to_string(axes_[i]);
-    uint64_t serial_num = serial_numbers_[1][i];
-    odrive *od = odrives[serial_num];    
-    if (enable_watchdogs_[i]) {
-      execOdriveFunc(od->endpoint, od->json, axis + ".watchdog_feed");
-    }
-  }
+  ROS_INFO("Start called ...");
   // for all drives 
   for (auto serial_num : serial_numbers_[0]) {
     odrive *od = odrives[serial_num];
     execOdriveFunc(od->endpoint, od->json, "clear_errors");
+  }
+
+  for (size_t i = 0; i < info_.joints.size(); i++) {
+    std::string axis = "axis" + std::to_string(axes_[i]);
+    uint64_t serial_num = serial_numbers_[1][i];
+    odrive *od = odrives[serial_num];    
+    ROS_INFO("Starting AXIS %d watchdog_enabled (%s) reverse_control(%s)",i, 
+             enable_watchdogs_[i] ? "true" : "false",
+             reverse_control_[i] ? "true" : "false");
+    if (enable_watchdogs_[i]) {
+      execOdriveFunc(od->endpoint, od->json, axis + ".watchdog_feed");
+    }
+    //uint8_t requested_state = AXIS_STATE_MOTOR_CALIBRATION;
+    //writeOdriveData(od->endpoint, od->json, axis + ".requested_state", requested_state);
   }
 
   status_ = hardware_interface::status::STARTED;
@@ -228,7 +236,7 @@ return_type ODriveHardwareInterface::start()
 
 return_type ODriveHardwareInterface::stop()
 {
-  int32_t requested_state = AXIS_STATE_IDLE;
+  uint8_t requested_state = AXIS_STATE_IDLE;
   for (size_t i = 0; i < info_.joints.size(); i++) {
     std::string axis = "axis" + std::to_string(axes_[i]);
     uint64_t serial_num = serial_numbers_[1][i];
@@ -292,17 +300,20 @@ return_type ODriveHardwareInterface::write()
 
     switch (control_level_[i]) {
       case integration_level_t::POSITION:
-        input_pos = hw_commands_positions_[i] / 2 / M_PI;
+        input_pos = (hw_commands_positions_[i] / 2 / M_PI) * (reverse_control_[i] ? -1.0 : 1.0);
+        ROS_DEBUG("::write %d POSITION %f", i,input_pos);
         writeOdriveData(od->endpoint, od->json, axis + ".controller.input_pos",input_pos);
-
+        break;
       case integration_level_t::VELOCITY:
-        input_vel = hw_commands_velocities_[i] / 2 / M_PI;
+        input_vel = (hw_commands_velocities_[i] / 2 / M_PI) * (reverse_control_[i] ? -1.0 : 1.0);
+        ROS_DEBUG("::write %d VELOCITY %f", i,input_vel);
         writeOdriveData(od->endpoint, od->json, axis + ".controller.input_vel",input_vel);
-
+        break;
       case integration_level_t::EFFORT:
-        input_torque = hw_commands_efforts_[i];
+        input_torque = hw_commands_efforts_[i] * (reverse_control_[i] ? -1.0 : 1.0);
+        ROS_DEBUG("::write %d EFFORT %f", i,input_torque);
         writeOdriveData(od->endpoint, od->json, axis + ".controller.input_torque",input_torque);
-
+        break;
       case integration_level_t::UNDEFINED:
         if (enable_watchdogs_[i]) {
           execOdriveFunc(od->endpoint, od->json, axis + ".watchdog_feed");

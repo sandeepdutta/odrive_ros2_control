@@ -289,7 +289,7 @@ int odrive_endpoint::init(uint64_t serialNumber)
 
     for (size_t i = 0; i < device_count; ++i) {
         libusb_device *device = usb_device_list[i];
-        libusb_device_descriptor desc = {0};
+        libusb_device_descriptor desc ;
 
         int result = libusb_get_device_descriptor(device, &desc);
         if (result != LIBUSB_SUCCESS) {
@@ -529,15 +529,16 @@ int calibrateAxis0(odrive_endpoint *endpoint, Json::Value odrive_json)
     float fval;
     uint32_t u32val;
     bool bval;
-
+    std::chrono::seconds s_10(10);
+    std::chrono::nanoseconds nanos_10 = std::chrono::duration_cast<std::chrono::nanoseconds>(s_10);
     u32val = AXIS_STATE_MOTOR_CALIBRATION;
     writeOdriveData(endpoint, odrive_json, string("axis0.requested_state"), u32val);
-    sleep(10);//ros::Duration(10.0).sleep();
+    rclcpp::sleep_for(nanos_10);
     bval = true;
     writeOdriveData(endpoint, odrive_json, string("axis0.motor.config.pre_calibrated"), bval);
     u32val = AXIS_STATE_ENCODER_OFFSET_CALIBRATION;
     writeOdriveData(endpoint, odrive_json, string("axis0.requested_state"), u32val);
-    sleep(10);//ros::Duration(10.0).sleep();
+    rclcpp::sleep_for(nanos_10);
     bval = true;
     writeOdriveData(endpoint, odrive_json, string("axis0.encoder.config.pre_calibrated"), bval);
 

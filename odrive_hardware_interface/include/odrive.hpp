@@ -54,4 +54,5 @@ class odrive{
 };
 #define ROS_ERROR(...) RCLCPP_ERROR(rclcpp::get_logger("ODriveHardwareInterface"),__VA_ARGS__)
 #define ROS_INFO(...)  RCLCPP_INFO(rclcpp::get_logger("ODriveHardwareInterface"),__VA_ARGS__)
+#define ROS_DEBUG(...) RCLCPP_DEBUG(rclcpp::get_logger("ODriveHardwareInterface"),__VA_ARGS__)
 #endif
