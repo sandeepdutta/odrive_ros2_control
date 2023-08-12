@@ -55,6 +55,7 @@ def generate_launch_description():
         executable="ros2_control_node",
         parameters=[robot_description, robot_controllers],
         #prefix="gdbserver localhost:2020 ",
+        #arguments=['--ros-args','--log-level','DEBUG'],
         output="both",
     )
 

@@ -8,7 +8,7 @@
 
   <xacro:include filename="$(find jeeves_sim_description)/urdf/jeeves_sim.xacro" />
 
-  <xacro:include filename="$(find odrive_demo_description)/urdf/odrive.ros2_control.xacro" />
+  <xacro:include filename="$(find odrive_jeeves_description)/urdf/odrive.ros2_control.xacro" />
 
   <xacro:odrive_ros2_control
     name="ODriveDiffBot"
