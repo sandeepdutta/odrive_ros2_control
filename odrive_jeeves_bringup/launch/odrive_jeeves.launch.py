@@ -13,12 +13,16 @@
 # limitations under the License.
 
 from launch import LaunchDescription
-from launch.substitutions import Command, FindExecutable, PathJoinSubstitution
+from launch.substitutions import Command, FindExecutable, PathJoinSubstitution, LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-
+from launch.conditions import IfCondition
+from launch.actions import GroupAction
 
 def generate_launch_description():
+    # slave=True means Gazebo will drive the robot
+    slave = LaunchConfiguration("slave", default="False")
+
     robot_description_content = Command(
         [
             PathJoinSubstitution([FindExecutable(name="xacro")]),
@@ -59,24 +63,64 @@ def generate_launch_description():
         output="both",
     )
 
-    robot_state_pub_node = Node(
-        package="robot_state_publisher",
-        executable="robot_state_publisher",
-        output="both",
-        parameters=[robot_description],
-    )
+    robot_state_pub_node = GroupAction([
+        Node(
+            condition=IfCondition(slave),
+            namespace="slave",
+            package="robot_state_publisher",
+            executable="robot_state_publisher",
+            output="both",
+            parameters=[robot_description]
+        ),
+        Node(
+            condition=IfCondition(PythonExpression(['not ',slave])),
+            package="robot_state_publisher",
+            executable="robot_state_publisher",
+            output="both",
+            parameters=[robot_description]
+        )
+    ])
 
-    joint_state_broadcaster_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["joint_state_broadcaster", "-c", "/controller_manager"],
-    )
-
-    robot_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["diffbot_base_controller", "-c", "/controller_manager"],
-    )
+    joint_state_broadcaster_spawner = GroupAction([
+        Node(
+            condition=IfCondition(slave),
+            namespace="slave",
+            package="controller_manager",
+            executable="spawner",
+            arguments=["joint_state_broadcaster", "-c", "/controller_manager"]
+        ),
+        Node(
+            condition=IfCondition(PythonExpression(['not ',slave])),
+            package="controller_manager",
+            executable="spawner",
+            arguments=["joint_state_broadcaster", "-c", "/controller_manager"]
+        )
+    ])
+    robot_controller_spawner = GroupAction([
+        Node(
+            condition=IfCondition(slave),
+            namespace="slave",
+            package="controller_manager",
+            executable="spawner",
+            arguments=["diffbot_base_controller", "-c", "/controller_manager"]
+        ),
+        Node(
+            condition=IfCondition(PythonExpression(['not ',slave])),
+            package="controller_manager",
+            executable="spawner",
+            arguments=["diffbot_base_controller", "-c", "/controller_manager"]
+        ),
+        Node (
+            package="topic_tools",
+            executable="relay",
+            arguments=["/cmd_vel","/diffbot_base_controller/cmd_vel_unstamped"]
+        ),
+#        Node (
+#            package="topic_tools",
+#            executable="relay",
+#            arguments=["/diffbot_base_controller/odom","/odom"]
+#        )
+    ])
 
     #rviz_node = Node(
     #    package="rviz2",

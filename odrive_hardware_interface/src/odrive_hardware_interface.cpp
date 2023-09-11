@@ -31,6 +31,7 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_init(const hardwa
   hw_controller_errors_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_fet_temperatures_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_motor_temperatures_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+  hw_motor_current_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
 
   /* odrive global parameters */
   for (const hardware_interface::ComponentInfo & sensor : info_.sensors) {
@@ -95,6 +96,7 @@ std::vector<hardware_interface::StateInterface> ODriveHardwareInterface::export_
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, "controller_error", &hw_controller_errors_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, "fet_temperature", &hw_fet_temperatures_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, "motor_temperature", &hw_motor_temperatures_[i]));
+    state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, "motor_current", &hw_motor_temperatures_[i]));
   }
   ROS_INFO("States exported ..");
   return state_interfaces;
@@ -263,7 +265,7 @@ hardware_interface::return_type ODriveHardwareInterface::read(
     std::string axis = "axis" + std::to_string(axes_[i]);
     uint64_t serial_num = serial_numbers_[1][i];
     odrive *od = odrives[serial_num];    
-    float Iq_measured, vel_estimate, pos_estimate, fet_temperature, motor_temperature;
+    float Iq_measured, vel_estimate, pos_estimate, fet_temperature, motor_temperature, motor_current;
     int32_t axis_error;
     uint8_t controller_error;
     uint64_t  motor_error ;
@@ -286,6 +288,8 @@ hardware_interface::return_type ODriveHardwareInterface::read(
     hw_fet_temperatures_[i] = fet_temperature;
     readOdriveData(od->endpoint, od->json, axis + ".motor.motor_thermistor.temperature",motor_temperature);
     hw_motor_temperatures_[i] = motor_temperature;
+    readOdriveData(od->endpoint, od->json, axis + ".motor.I_bus",motor_current);
+    hw_motor_current_[i] = motor_current;
   }
 
   return hardware_interface::return_type::OK;

@@ -102,6 +102,7 @@ private:
   std::vector<double> hw_controller_errors_;
   std::vector<double> hw_fet_temperatures_;
   std::vector<double> hw_motor_temperatures_;
+  std::vector<double> hw_motor_current_;
 
   enum class integration_level_t : int32_t
   {
