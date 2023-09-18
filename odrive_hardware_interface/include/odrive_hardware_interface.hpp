@@ -16,6 +16,9 @@
 
 #include <cmath>
 #include <map>
+#include <chrono>
+#include <mutex>
+#include <thread>
 #include "hardware_interface/handle.hpp"
 #include "hardware_interface/hardware_info.hpp"
 #include "hardware_interface/system_interface.hpp"
@@ -79,6 +82,13 @@ public:
   hardware_interface::return_type write(
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
+  ODRIVE_HARDWARE_INTERFACE_LOCAL
+  hardware_interface::return_type read_into_rt_interface();
+
+  ODRIVE_HARDWARE_INTERFACE_LOCAL
+  hardware_interface::return_type write_from_rt_interface();
+
+  ODRIVE_HARDWARE_INTERFACE_LOCAL void usb_read_write_func();
 private:
 
   std::vector<std::vector<int64_t>> serial_numbers_;
@@ -103,6 +113,31 @@ private:
   std::vector<double> hw_fet_temperatures_;
   std::vector<double> hw_motor_temperatures_;
   std::vector<double> hw_motor_current_;
+  bool _thread_terminate;
+  int  _thread_update_rate_hz;
+  std::thread usb_read_write_thread;
+
+  struct _hw_realtime_interface_ {
+    bool new_data_avail;
+    std::vector<double> hw_vbus_voltages_;
+
+    std::vector<double> hw_commands_positions_;
+    std::vector<double> hw_commands_velocities_;
+    std::vector<double> hw_commands_efforts_;
+    std::vector<double> hw_positions_;
+    std::vector<double> hw_velocities_;
+    std::vector<double> hw_efforts_;
+
+    std::vector<double> hw_axis_errors_;
+    std::vector<double> hw_motor_errors_;
+    std::vector<double> hw_encoder_errors_;
+    std::vector<double> hw_controller_errors_;
+    std::vector<double> hw_fet_temperatures_;
+    std::vector<double> hw_motor_temperatures_;
+    std::vector<double> hw_motor_current_;
+  } hw_rt_interface;
+
+  std::mutex rt_mutex_; // mutex to handle realtime transfers
 
   enum class integration_level_t : int32_t
   {
