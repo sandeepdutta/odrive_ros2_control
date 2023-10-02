@@ -87,13 +87,13 @@ def generate_launch_description():
             namespace="slave",
             package="controller_manager",
             executable="spawner",
-            arguments=["joint_state_broadcaster", "-c", "/controller_manager"]
+            arguments=["joint_state_broadcaster", "-c", "/controller_manager","--controller-manager-timeout","50"]
         ),
         Node(
             condition=IfCondition(PythonExpression(['not ',slave])),
             package="controller_manager",
             executable="spawner",
-            arguments=["joint_state_broadcaster", "-c", "/controller_manager"]
+            arguments=["joint_state_broadcaster", "-c", "/controller_manager","--controller-manager-timeout","50"]
         )
     ])
     robot_controller_spawner = GroupAction([
@@ -102,13 +102,13 @@ def generate_launch_description():
             namespace="slave",
             package="controller_manager",
             executable="spawner",
-            arguments=["diffbot_base_controller", "-c", "/controller_manager"]
+            arguments=["diffbot_base_controller", "-c", "/controller_manager","--controller-manager-timeout","50"]
         ),
         Node(
             condition=IfCondition(PythonExpression(['not ',slave])),
             package="controller_manager",
             executable="spawner",
-            arguments=["diffbot_base_controller", "-c", "/controller_manager"]
+            arguments=["diffbot_base_controller", "-c", "/controller_manager","--controller-manager-timeout","50"]
         ),
         Node (
             package="topic_tools",

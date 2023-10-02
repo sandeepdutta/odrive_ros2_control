@@ -631,20 +631,20 @@ int getObjectByName(Json::Value odrive_json, std::string name, odrive_object *od
     Json::Value js2 = odrive_json;
 
     while ((pos = name.find(".")) != std::string::npos) {
-    js = js2;
+        js = js2;
         token = name.substr(0, pos);
         for (i = 0 ; i < js.size() ; i++) {
             if (!token.compare(js[i]["name"].asString())) {
-    	if (!string("object").compare(js[i]["type"].asString())) {
-                js2 = js[i]["members"];
-    	}
-    	else {
-                    js2 = js[i];
-    	}
-    	break;
+                if (!string("object").compare(js[i]["type"].asString())) {
+                        js2 = js[i]["members"];
+                }
+                else {
+                            js2 = js[i];
+                }
+                break;
             }
         }
-    name.erase(0, pos + 1);
+        name.erase(0, pos + 1);
     }
 
     for (i = 0 ; i < js2.size() ; i++) {
@@ -653,8 +653,8 @@ int getObjectByName(Json::Value odrive_json, std::string name, odrive_object *od
             odo->id = js2[i]["id"].asInt();
             odo->type = js2[i]["type"].asString();
             odo->access = js2[i]["access"].asString();
-        ret = 0;
-        break;
+            ret = 0;
+            break;
         }
     }
 
@@ -685,7 +685,7 @@ int readOdriveData(odrive_endpoint *endpoint, Json::Value odrive_json,
         ROS_ERROR("* Error getting ID for %s", object.c_str());
     return ret;
     }
-
+#ifdef ODRIVE_DO_TYPE_CHECK
     if (odo.access.find("r") == string::npos) {
         ROS_ERROR("* Error: invalid read access for %s", object.c_str());
         return ret;
@@ -743,7 +743,7 @@ int readOdriveData(odrive_endpoint *endpoint, Json::Value odrive_json,
         ROS_ERROR("* Error: invalid type for %s", object.c_str());
         return ODRIVE_ERROR;
     }
-
+#endif 
     ret = endpoint->getData(odo.id, value);
 
     return ret;
@@ -770,7 +770,7 @@ int writeOdriveData(odrive_endpoint *endpoint, Json::Value odrive_json,
         ROS_ERROR("* Error: getting ID for %s", object.c_str());
         return ODRIVE_ERROR;
     }
-
+#ifdef ODRIVE_DO_TYPE_CHECK
     if (odo.access.find("w") == string::npos) {
         ROS_ERROR("* Error: invalid write access for %s", object.c_str());
         return ODRIVE_ERROR;
@@ -828,7 +828,7 @@ int writeOdriveData(odrive_endpoint *endpoint, Json::Value odrive_json,
         ROS_ERROR("* Error: invalid type for %s", object.c_str());
         return ODRIVE_ERROR;
     }
-
+#endif 
     ret = endpoint->setData(odo.id, value);
 
     return ret;

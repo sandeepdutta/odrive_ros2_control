@@ -26,7 +26,8 @@
 //#define ODRIVE_DEFAULT_CRC_VALUE 0x9b40
 #define ODRIVE_DEFAULT_CRC_VALUE 0xebfb
 #define ODRIVE_PROTOCOL_VERSION 1
-
+// uncomment to perform type check is Read/Write OdriveData
+//#define ODRIVE_DO_TYPE_CHECK 
 // ODrive Comm
 #define ODRIVE_COMM_SUCCESS 0
 #define ODRIVE_COMM_ERROR   1

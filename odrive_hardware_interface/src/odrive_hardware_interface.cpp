@@ -257,8 +257,8 @@ hardware_interface::return_type ODriveHardwareInterface::read(
     float vbus_voltage;
     uint64_t serial_num = serial_numbers_[0][i];
     odrive *od = odrives[serial_num];    
-    readOdriveData(od->endpoint, od->json, "vbus_voltage", vbus_voltage);
-    hw_vbus_voltages_[i] = vbus_voltage;
+    //readOdriveData(od->endpoint, od->json, "vbus_voltage", vbus_voltage);
+    //hw_vbus_voltages_[i] = vbus_voltage;
   }
 
   for (size_t i = 0; i < info_.joints.size(); i++) {
@@ -270,26 +270,30 @@ hardware_interface::return_type ODriveHardwareInterface::read(
     uint8_t controller_error;
     uint64_t  motor_error ;
     uint16_t encoder_error;
-    readOdriveData(od->endpoint, od->json, axis + ".motor.current_control.Iq_measured",Iq_measured);
-    hw_efforts_[i] = Iq_measured * torque_constants_[i];
-    readOdriveData(od->endpoint, od->json, axis + ".encoder.vel_estimate", vel_estimate);
-    hw_velocities_[i] = vel_estimate * 2 * M_PI;
-    readOdriveData(od->endpoint, od->json, axis + ".encoder.pos_estimate", pos_estimate);
-    hw_positions_[i] = pos_estimate * 2 * M_PI;
-    readOdriveData(od->endpoint, od->json, axis + ".error", axis_error);
-    hw_axis_errors_[i] = axis_error;
-    readOdriveData(od->endpoint, od->json, axis + ".motor.error", motor_error);
-    hw_motor_errors_[i] = motor_error;
-    readOdriveData(od->endpoint, od->json, axis + ".encoder.error", encoder_error);
-    hw_encoder_errors_[i] = encoder_error;
-    readOdriveData(od->endpoint, od->json, axis + ".controller.error", controller_error);
-    hw_controller_errors_[i] = controller_error;
-    readOdriveData(od->endpoint, od->json, axis + ".motor.fet_thermistor.temperature", fet_temperature);
-    hw_fet_temperatures_[i] = fet_temperature;
-    readOdriveData(od->endpoint, od->json, axis + ".motor.motor_thermistor.temperature",motor_temperature);
-    hw_motor_temperatures_[i] = motor_temperature;
-    readOdriveData(od->endpoint, od->json, axis + ".motor.I_bus",motor_current);
-    hw_motor_current_[i] = motor_current;
+    //readOdriveData(od->endpoint, od->json, axis + ".motor.current_control.Iq_measured",Iq_measured);
+    //hw_efforts_[i] = Iq_measured * torque_constants_[i];
+    if (control_level_[i] == integration_level_t::POSITION) {
+      readOdriveData(od->endpoint, od->json, axis + ".encoder.pos_estimate", pos_estimate);
+      hw_positions_[i] = pos_estimate * 2 * M_PI * (reverse_control_[i] ? -1.0 : 1.0);
+    } else { // if (control_level_[i] == integration_level_t::VELOCITY) {
+      readOdriveData(od->endpoint, od->json, axis + ".encoder.vel_estimate", vel_estimate);
+      hw_velocities_[i] = vel_estimate * 2 * M_PI * (reverse_control_[i] ? -1.0 : 1.0);
+      //ROS_INFO("Reading velocity %f %f",hw_velocities_[i],vel_estimate);
+    }
+    //readOdriveData(od->endpoint, od->json, axis + ".error", axis_error);
+    //hw_axis_errors_[i] = axis_error;
+    //readOdriveData(od->endpoint, od->json, axis + ".motor.error", motor_error);
+    //hw_motor_errors_[i] = motor_error;
+    //readOdriveData(od->endpoint, od->json, axis + ".encoder.error", encoder_error);
+    //hw_encoder_errors_[i] = encoder_error;
+    //readOdriveData(od->endpoint, od->json, axis + ".controller.error", controller_error);
+    //hw_controller_errors_[i] = controller_error;
+    //readOdriveData(od->endpoint, od->json, axis + ".motor.fet_thermistor.temperature", fet_temperature);
+    //hw_fet_temperatures_[i] = fet_temperature;
+    //readOdriveData(od->endpoint, od->json, axis + ".motor.motor_thermistor.temperature",motor_temperature);
+    //hw_motor_temperatures_[i] = motor_temperature;
+    //readOdriveData(od->endpoint, od->json, axis + ".motor.I_bus",motor_current);
+    //hw_motor_current_[i] = motor_current;
   }
 
   return hardware_interface::return_type::OK;
