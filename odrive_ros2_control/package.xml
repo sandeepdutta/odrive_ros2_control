@@ -11,7 +11,7 @@
 
   <exec_depend>odrive_demo_bringup</exec_depend>
   <exec_depend>odrive_demo_description</exec_depend>
-  <exec_depend>odrive_hardware_interface</exec_depend>
+  <exec_depend>odrive_hardware_interface_usb</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

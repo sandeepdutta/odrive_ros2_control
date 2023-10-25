@@ -1,12 +1,12 @@
 #include <odrive.hpp>
 
-#include "odrive_hardware_interface.hpp"
+#include "odrive_hardware_interface_usb.hpp"
 
 #include "pluginlib/class_list_macros.hpp"
 
-namespace odrive_hardware_interface
+namespace odrive_hardware_interface_usb
 {
-hardware_interface::CallbackReturn ODriveHardwareInterface::on_init(const hardware_interface::HardwareInfo & info)
+hardware_interface::CallbackReturn ODriveHardwareInterfaceUSB::on_init(const hardware_interface::HardwareInfo & info)
 {
   if ( hardware_interface::SystemInterface::on_init(info) != hardware_interface::CallbackReturn::SUCCESS) {
     return  hardware_interface::CallbackReturn::ERROR;
@@ -81,7 +81,7 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_init(const hardwa
   return  hardware_interface::CallbackReturn::SUCCESS;
 }
 
-std::vector<hardware_interface::StateInterface> ODriveHardwareInterface::export_state_interfaces()
+std::vector<hardware_interface::StateInterface> ODriveHardwareInterfaceUSB::export_state_interfaces()
 {
   std::vector<hardware_interface::StateInterface> state_interfaces;
   for (size_t i = 0; i < info_.sensors.size(); i++) {
@@ -105,7 +105,7 @@ std::vector<hardware_interface::StateInterface> ODriveHardwareInterface::export_
 }
 
 std::vector<hardware_interface::CommandInterface>
-ODriveHardwareInterface::export_command_interfaces()
+ODriveHardwareInterfaceUSB::export_command_interfaces()
 {
   std::vector<hardware_interface::CommandInterface> command_interfaces;
   for (size_t i = 0; i < info_.joints.size(); i++) {
@@ -117,7 +117,7 @@ ODriveHardwareInterface::export_command_interfaces()
   return command_interfaces;
 }
 
- hardware_interface::return_type ODriveHardwareInterface::prepare_command_mode_switch(
+ hardware_interface::return_type ODriveHardwareInterfaceUSB::prepare_command_mode_switch(
   const std::vector<std::string> & start_interfaces,
   const std::vector<std::string> & stop_interfaces)
 {
@@ -152,7 +152,7 @@ ODriveHardwareInterface::export_command_interfaces()
   return  hardware_interface::return_type::OK;
 }
 
-hardware_interface::return_type ODriveHardwareInterface::perform_command_mode_switch(
+hardware_interface::return_type ODriveHardwareInterfaceUSB::perform_command_mode_switch(
   const std::vector<std::string> &a, const std::vector<std::string> &b)
 {
   ROS_INFO("Perform commnad mode switch called ..a %ld , b%ld", a.size(), b.size());
@@ -211,7 +211,7 @@ hardware_interface::return_type ODriveHardwareInterface::perform_command_mode_sw
   return hardware_interface::return_type::OK;
 }
 
-hardware_interface::CallbackReturn ODriveHardwareInterface::on_activate(const rclcpp_lifecycle::State & /*previous_state*/)
+hardware_interface::CallbackReturn ODriveHardwareInterfaceUSB::on_activate(const rclcpp_lifecycle::State & /*previous_state*/)
 {
   ROS_INFO("Start called ...");
   // for all drives 
@@ -238,7 +238,7 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_activate(const rc
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
-hardware_interface::CallbackReturn ODriveHardwareInterface::on_deactivate(const rclcpp_lifecycle::State & /*previous_state*/)
+hardware_interface::CallbackReturn ODriveHardwareInterfaceUSB::on_deactivate(const rclcpp_lifecycle::State & /*previous_state*/)
 {
   uint8_t requested_state = AXIS_STATE_IDLE;
   for (size_t i = 0; i < info_.joints.size(); i++) {
@@ -252,7 +252,7 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_deactivate(const 
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
-hardware_interface::return_type ODriveHardwareInterface::read(
+hardware_interface::return_type ODriveHardwareInterfaceUSB::read(
     const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
   for (size_t i = 0; i < info_.sensors.size(); i++) {
@@ -318,7 +318,7 @@ hardware_interface::return_type ODriveHardwareInterface::read(
   return hardware_interface::return_type::OK;
 }
 
-hardware_interface::return_type ODriveHardwareInterface::write(
+hardware_interface::return_type ODriveHardwareInterfaceUSB::write(
     const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
   for (size_t i = 0; i < info_.joints.size(); i++) {
@@ -361,5 +361,5 @@ hardware_interface::return_type ODriveHardwareInterface::write(
 }  // namespace odrive_hardware_interface
 
 PLUGINLIB_EXPORT_CLASS(
-  odrive_hardware_interface::ODriveHardwareInterface, hardware_interface::SystemInterface)
+  odrive_hardware_interface_usb::ODriveHardwareInterfaceUSB, hardware_interface::SystemInterface)
 

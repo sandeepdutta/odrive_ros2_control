@@ -33,19 +33,19 @@
   do {                                                                                     \
     int ret = (status);                                                                    \
     if (ret != 0) {                                                                        \
-      RCLCPP_ERROR(rclcpp::get_logger("ODriveHardwareInterface"), libusb_error_name(ret)); \
+      RCLCPP_ERROR(rclcpp::get_logger("ODriveHardwareInterfaceUSB"), libusb_error_name(ret)); \
       return return_type::ERROR;                                                           \
     }                                                                                      \
   } while (0)
 
 
 
-namespace odrive_hardware_interface
+namespace odrive_hardware_interface_usb
 {
-class ODriveHardwareInterface : public hardware_interface::SystemInterface
+class ODriveHardwareInterfaceUSB : public hardware_interface::SystemInterface
 {
 public:
-  RCLCPP_SHARED_PTR_DEFINITIONS(ODriveHardwareInterface)
+  RCLCPP_SHARED_PTR_DEFINITIONS(ODriveHardwareInterfaceUSB)
 
   ODRIVE_HARDWARE_INTERFACE_PUBLIC
    hardware_interface::CallbackReturn on_init(const hardware_interface::HardwareInfo & info) override;
@@ -117,4 +117,4 @@ private:
   std::map<uint64_t, odrive *>  odrives;
   std::vector<integration_level_t> control_level_;
 };
-}  // namespace odrive_hardware_interface
+}  // namespace odrive_hardware_interface_usb

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(odrive_hardware_interface)
+project(odrive_hardware_interface_usb)
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
@@ -48,10 +48,10 @@ target_link_libraries(
 
 ament_auto_add_library(
   ${PROJECT_NAME} SHARED
-  src/odrive_hardware_interface.cpp
+  src/odrive_hardware_interface_usb.cpp
 )
 
-pluginlib_export_plugin_description_file(hardware_interface odrive_hardware_interface.xml)
+pluginlib_export_plugin_description_file(hardware_interface odrive_hardware_interface_usb.xml)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
