@@ -32,7 +32,9 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_init(const hardwa
   hw_fet_temperatures_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_motor_temperatures_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_motor_current_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-
+  hw_vel_set_zero_.resize(info_.joints.size(), true);
+  hw_vel_prev_value_.resize(info_.joints.size(),0.0);
+  hw_vel_suppress_.resize(info_.joints.size(),false);
   /* odrive global parameters */
   for (const hardware_interface::ComponentInfo & sensor : info_.sensors) {
     serial_numbers_[0].emplace_back(std::stoull(sensor.parameters.at("serial_number"), 0, 16));
@@ -277,7 +279,24 @@ hardware_interface::return_type ODriveHardwareInterface::read(
       hw_positions_[i] = pos_estimate * 2 * M_PI * (reverse_control_[i] ? -1.0 : 1.0);
     } else { // if (control_level_[i] == integration_level_t::VELOCITY) {
       readOdriveData(od->endpoint, od->json, axis + ".encoder.vel_estimate", vel_estimate);
+      // if requested to go to zero
       hw_velocities_[i] = vel_estimate * 2 * M_PI * (reverse_control_[i] ? -1.0 : 1.0);
+      if (hw_vel_set_zero_[i]) {
+          if (!hw_vel_suppress_[i]) {
+            // then check for jitter (sign changed)
+            if (std::signbit(hw_velocities_[i]) != std::signbit(hw_vel_prev_value_[i])) {
+              hw_vel_suppress_[i] = true;
+              hw_velocities_[i] = 0.0;
+            }
+          } else {
+              hw_velocities_[i] = 0.0;
+          }
+      } else {
+        hw_vel_suppress_[i] = false;
+      }
+
+      hw_vel_prev_value_[i] = hw_velocities_[i];
+
       //ROS_INFO("Reading velocity %f %f",hw_velocities_[i],vel_estimate);
     }
     //readOdriveData(od->endpoint, od->json, axis + ".error", axis_error);
@@ -317,6 +336,12 @@ hardware_interface::return_type ODriveHardwareInterface::write(
       case integration_level_t::VELOCITY:
         input_vel = (hw_commands_velocities_[i] / 2 / M_PI) * (reverse_control_[i] ? -1.0 : 1.0);
         ROS_DEBUG("::write %ld VELOCITY %f", i,input_vel);
+        // record if we are asking it to stop
+        if (abs(hw_commands_velocities_[i]) < 0.0000001) {
+          hw_vel_set_zero_[i] = true;
+        } else {
+          hw_vel_set_zero_[i] = false;
+        }
         writeOdriveData(od->endpoint, od->json, axis + ".controller.input_vel",input_vel);
         break;
       case integration_level_t::EFFORT:

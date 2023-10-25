@@ -1,4 +1,6 @@
 
+odrv0.config.enable_brake_resistor = True
+odrv0.config.brake_resistance = 2.0
 ###
 ### - AXIS 0
 ###

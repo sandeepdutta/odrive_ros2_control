@@ -103,6 +103,9 @@ private:
   std::vector<double> hw_fet_temperatures_;
   std::vector<double> hw_motor_temperatures_;
   std::vector<double> hw_motor_current_;
+  std::vector<bool>   hw_vel_set_zero_;
+  std::vector<double> hw_vel_prev_value_;
+  std::vector<bool>   hw_vel_suppress_;
 
   enum class integration_level_t : int32_t
   {

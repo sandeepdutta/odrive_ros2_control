@@ -13,8 +13,8 @@
   <xacro:odrive_ros2_control
     name="ODriveDiffBot"
     serial_number="2054368F424D"
-    joint0_name="$(arg prefix)Right_wheel_joint"
-    joint1_name="$(arg prefix)Left_wheel_joint" />
+    joint1_name="$(arg prefix)Right_wheel_joint"
+    joint0_name="$(arg prefix)Left_wheel_joint" />
 
 <!--
 // Copyright 2022 Stereolabs
