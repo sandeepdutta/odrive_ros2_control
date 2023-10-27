@@ -1,6 +1,6 @@
 <library path="odrive_hardware_interface_usb">
-  <class name="odrive_hardware_interface/ODriveHardwareInterfaceUSB"
-         type="odrive_hardware_interface::ODriveHardwareInterfaceUSB"
+  <class name="odrive_hardware_interface_usb/ODriveHardwareInterfaceUSB"
+         type="odrive_hardware_interface_usb::ODriveHardwareInterfaceUSB"
          base_class_type="hardware_interface::SystemInterface">
     <description>
       ODrive plugin for ros2_control.

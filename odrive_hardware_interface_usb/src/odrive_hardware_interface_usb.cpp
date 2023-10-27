@@ -358,7 +358,7 @@ hardware_interface::return_type ODriveHardwareInterfaceUSB::write(
 
   return hardware_interface::return_type::OK;
 }
-}  // namespace odrive_hardware_interface
+}  // namespace odrive_hardware_interface_usb
 
 PLUGINLIB_EXPORT_CLASS(
   odrive_hardware_interface_usb::ODriveHardwareInterfaceUSB, hardware_interface::SystemInterface)

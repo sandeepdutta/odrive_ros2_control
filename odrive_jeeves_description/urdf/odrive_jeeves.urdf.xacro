@@ -13,6 +13,9 @@
   <xacro:odrive_ros2_control
     name="ODriveDiffBot"
     serial_number="2054368F424D"
+    can_tty="/dev/ttyUSB0"
+    joint0_canid="1"
+    joint1_canid="2"
     joint1_name="$(arg prefix)Right_wheel_joint"
     joint0_name="$(arg prefix)Left_wheel_joint" />
 

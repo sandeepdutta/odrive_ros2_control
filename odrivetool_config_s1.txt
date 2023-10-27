@@ -1,0 +1,62 @@
+odrv0.config.dc_bus_overvoltage_trip_level = 30.0
+odrv0.config.dc_max_positive_current = 10
+odrv0.config.dc_max_negative_current = -0.01
+odrv0.config.brake_resistor0.resistance = 2.0 # resistance in Ohms
+odrv0.config.brake_resistor0.enable = True
+odrv0.clear_errors()
+
+## Motor config
+# [motor parameters]
+odrv0.axis0.config.motor.motor_type = MotorType.HIGH_CURRENT
+odrv0.axis0.config.motor.pole_pairs = 15
+odrv0.axis0.config.motor.torque_constant = 8.27 / 16
+# [system config]
+odrv0.config.dc_max_negative_current = -10
+odrv0.axis0.config.motor.calibration_current = 4
+odrv0.axis0.config.calibration_lockin.current = 4
+odrv0.axis0.config.motor.resistance_calib_max_voltage = 10
+odrv0.axis0.config.motor.current_control_bandwidth = 100
+odrv0.axis0.controller.config.control_mode = CONTROL_MODE_VELOCITY_CONTROL # Default to velocity control
+# [calibration]
+odrv0.axis0.requested_state = AxisState.MOTOR_CALIBRATION
+odrv0.save_configuration()
+# thermistor must be connected
+odrv0.axis0.motor_thermistor.config.enabled = True
+odrv0.save_configuration()
+
+# Current Limits
+odrv0.axis0.config.motor.current_soft_max = 5 # [A] (adapt this to your motor)
+odrv0.axis0.config.motor.current_hard_max = 10 # [A] (should be more than soft max)
+
+# Velocity Limit
+odrv0.axis0.controller.config.vel_limit = 2 # [turn/s]
+
+# Temperature Limit
+odrv0.axis0.motor.motor_thermistor.config.temp_limit_lower = 100 # °C (adapt this to your motor)
+odrv0.axis0.motor.motor_thermistor.config.temp_limit_upper = 120 # °C (adapt this to your motor)
+
+# Encoder config
+# [configure commutation encoder]
+odrv0.axis0.config.encoder_bandwidth = 100
+odrv0.hall_encoder0.config.enabled = True
+odrv0.axis0.config.commutation_encoder = EncoderId.HALL_ENCODER0
+
+# [CALIBRATE COMMUTATION ENCODER]
+odrv0.axis0.requested_state = AxisState.ENCODER_HALL_POLARITY_CALIBRATION
+# [wait for motor to stop]
+odrv0.axis0.requested_state = AxisState.ENCODER_HALL_PHASE_CALIBRATION
+# [wait for motor to stop]
+# [CALIBRATE LOAD ENCODER]
+odrv0.axis0.requested_state = AxisState.ENCODER_OFFSET_CALIBRATION
+# [wait for motor to stop]
+
+## Can message configuration
+odrv0.axis0.config.can.bus_voltage_msg_rate_ms  = 1000  # 1 HZ (uint32)
+odrv0.axis0.config.can.encoder_msg_rate_ms      = 50    # 20 HZ (uint32)
+odrv0.axis0.config.can.error_msg_rate_ms        = 1000  # 1 HZ (uint32)
+odrv0.axis0.config.can.heartbeat_msg_rate_ms    = 100   # 10 HZ (uint32)
+odrv0.axis0.config.can.iq_msg_rate_ms           = 1000  # 1 HZ (uint32)
+odrv0.axis0.config.can.is_extended              = False
+odrv0.axis0.config.can.temperature_msg_rate_ms  = 1000  # 1 HZ (uint32)
+odrv0.axis0.config.can.torques_msg_rate_ms      = 0     # Disabled (uint32)
+odrv0.axis0.config.can.version_msg_rate_ms      = 0     # Disabled (uint32)
