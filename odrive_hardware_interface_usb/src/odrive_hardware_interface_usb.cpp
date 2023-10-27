@@ -4,7 +4,7 @@
 
 #include "pluginlib/class_list_macros.hpp"
 
-namespace odrive_hardware_interface_usb
+namespace odrive_hardware_interface
 {
 hardware_interface::CallbackReturn ODriveHardwareInterfaceUSB::on_init(const hardware_interface::HardwareInfo & info)
 {
@@ -358,8 +358,8 @@ hardware_interface::return_type ODriveHardwareInterfaceUSB::write(
 
   return hardware_interface::return_type::OK;
 }
-}  // namespace odrive_hardware_interface_usb
+}  // namespace odrive_hardware_interface
 
 PLUGINLIB_EXPORT_CLASS(
-  odrive_hardware_interface_usb::ODriveHardwareInterfaceUSB, hardware_interface::SystemInterface)
+  odrive_hardware_interface::ODriveHardwareInterfaceUSB, hardware_interface::SystemInterface)
 

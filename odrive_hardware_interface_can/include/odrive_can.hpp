@@ -69,21 +69,25 @@ typedef enum {
 } CANUSB_PAYLOAD_MODE;
 
 typedef struct atomic_variables {
-    std::atomic<double> can_shared_vbus_voltages_      [MAX_SENSORS] ;
-    std::atomic<double> can_shared_positions_          [MAX_AXIS] ;
-    std::atomic<double> can_shared_velocities_         [MAX_AXIS] ;
-    std::atomic<double> can_shared_efforts_            [MAX_AXIS] ;
-    std::atomic<double> can_shared_axis_errors_        [MAX_AXIS] ;
-    std::atomic<double> can_shared_motor_temperatures_ [MAX_AXIS] ;
-    std::atomic<double> can_shared_motor_current_      [MAX_AXIS] ;
-    std::atomic<uint32_t> can_shared_active_errors     [MAX_AXIS];
-    std::atomic<uint8_t> can_shared_axis_state         [MAX_AXIS];
-    std::atomic<uint8_t> can_shared_procedure_result   [MAX_AXIS];
-    std::atomic<bool>   can_shared_trajectory_done_flag[MAX_AXIS]; 
+    std::atomic<double>   can_shared_vbus_voltages_       [MAX_AXIS] ;
+    std::atomic<double>   can_shared_vbus_currents_       [MAX_AXIS] ;
+    std::atomic<double>   can_shared_positions_           [MAX_AXIS] ;
+    std::atomic<double>   can_shared_velocities_          [MAX_AXIS] ;
+    std::atomic<double>   can_shared_efforts_             [MAX_AXIS] ;
+    std::atomic<double>   can_shared_torque_targets_      [MAX_AXIS] ;
+    std::atomic<double>   can_shared_axis_errors_         [MAX_AXIS] ;
+    std::atomic<double>   can_shared_motor_temperatures_  [MAX_AXIS] ;
+    std::atomic<double>   can_shared_fet_temperatures_    [MAX_AXIS] ;
+    std::atomic<double>   can_shared_motor_currents_      [MAX_AXIS] ;
+    std::atomic<uint32_t> can_shared_active_errors_       [MAX_AXIS];
+    std::atomic<uint8_t>  can_shared_axis_state_          [MAX_AXIS];
+    std::atomic<uint8_t>  can_shared_procedure_result_    [MAX_AXIS];
+    std::atomic<bool>     can_shared_trajectory_done_flag_[MAX_AXIS]; 
+    std::atomic<uint32_t> can_shared_disarm_reason_       [MAX_AXIS];
 } atomic_variables;
 
 typedef struct can_frame {
-    uint8_t     _pad_1;     /* */
+    uint8_t     _sof;     /* */
     uint8_t     _dlc ;      /* data length code */
     uint16_t    _frame_id;  /* */
     uint8_t     _data[MAX_CAN_FRAME_SIZE];
@@ -96,7 +100,7 @@ private:
     std::map<int32_t, int32_t> *canid_axis_;
     int can_adapter_init(const char *tty, int baud, int can_speed);
     // can send frame 
-    int  can_send_frame(int can_id, uint8_t *data, int32_t len);    
+    int  can_send_frame(uint32_t can_id, uint32_t cmd_id, can_frame *data, int32_t len);    
     // check if frame being received is complete
     bool can_frame_complete(const uint8_t *frame, int frame_len);
     // receive a frame

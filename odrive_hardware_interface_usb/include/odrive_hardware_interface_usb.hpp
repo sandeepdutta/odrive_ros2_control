@@ -40,7 +40,7 @@
 
 
 
-namespace odrive_hardware_interface_usb
+namespace odrive_hardware_interface
 {
 class ODriveHardwareInterfaceUSB : public hardware_interface::SystemInterface
 {
@@ -117,4 +117,4 @@ private:
   std::map<uint64_t, odrive *>  odrives;
   std::vector<integration_level_t> control_level_;
 };
-}  // namespace odrive_hardware_interface_usb
+}  // namespace odrive_hardware_interface

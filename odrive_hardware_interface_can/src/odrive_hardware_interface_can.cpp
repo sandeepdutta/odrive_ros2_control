@@ -2,7 +2,7 @@
 #include "odrive_hardware_interface_can.hpp"
 #include "pluginlib/class_list_macros.hpp"
 
-namespace odrive_hardware_interface_can
+namespace odrive_hardware_interface
 {
 hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_init(const hardware_interface::HardwareInfo & info)
 {
@@ -17,7 +17,7 @@ hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_init(const har
   hw_atomics_ = new struct atomic_variables();
 
   // state interfaces
-  hw_vbus_voltages_.resize(info_.sensors.size(), std::numeric_limits<double>::quiet_NaN());
+  hw_vbus_voltages_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_efforts_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
@@ -54,11 +54,9 @@ hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_init(const har
 std::vector<hardware_interface::StateInterface> ODriveHardwareInterfaceCAN::export_state_interfaces()
 {
   std::vector<hardware_interface::StateInterface> state_interfaces;
-  for (size_t i = 0; i < info_.sensors.size(); i++) {
-    state_interfaces.emplace_back(hardware_interface::StateInterface(info_.sensors[i].name, "vbus_voltage", &hw_vbus_voltages_[i]));
-  }
 
   for (size_t i = 0; i < info_.joints.size(); i++) {
+    state_interfaces.emplace_back(hardware_interface::StateInterface(info_.sensors[i].name, "vbus_voltage", &hw_vbus_voltages_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_efforts_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &hw_velocities_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, hardware_interface::HW_IF_POSITION, &hw_positions_[i]));
@@ -194,7 +192,7 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::read(
     hw_efforts_[i]    =  hw_atomics_->can_shared_efforts_[i].load(std::memory_order_relaxed);
     hw_axis_errors_[i]        = hw_atomics_->can_shared_axis_errors_[i].load(std::memory_order_relaxed);
     hw_motor_temperatures_[i] =  hw_atomics_->can_shared_motor_temperatures_[i].load(std::memory_order_relaxed);
-    hw_motor_current_[i]      =  hw_atomics_->can_shared_motor_current_[i].load(std::memory_order_relaxed);
+    hw_motor_current_[i]      =  hw_atomics_->can_shared_motor_currents_[i].load(std::memory_order_relaxed);
   }
 
   return hardware_interface::return_type::OK;
@@ -229,5 +227,5 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::write(
 }  // namespace odrive_hardware_interface_can
 
 PLUGINLIB_EXPORT_CLASS(
-  odrive_hardware_interface_can::ODriveHardwareInterfaceCAN, hardware_interface::SystemInterface)
+  odrive_hardware_interface::ODriveHardwareInterfaceCAN, hardware_interface::SystemInterface)
 

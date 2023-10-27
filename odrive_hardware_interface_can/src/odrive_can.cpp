@@ -227,85 +227,141 @@ void odrive_can::can_thread() {
         // if we cannot determine the frame then continue
         if (cmd_id == -1) continue;
         int axis = (*canid_axis_)[can_id];
+        if (!verify_length("response", 8, frame_len-5)) continue;
         switch(cmd_id) {
         case CmdId::kHeartbeat: {
-            if (!verify_length("kHeartbeat", 8, frame_len-5)) break;
-            hw_atomics_->can_shared_active_errors       [axis] = read_le<uint32_t>(can_frame_._data + 0);
-            hw_atomics_->can_shared_axis_state          [axis] = read_le<uint8_t>(can_frame_._data + 4);
-            hw_atomics_->can_shared_procedure_result    [axis] = read_le<uint8_t>(can_frame_._data + 5);
-            hw_atomics_->can_shared_trajectory_done_flag[axis] = read_le<bool>(can_frame_._data + 6);
+            hw_atomics_->can_shared_active_errors_       [axis] = read_le<uint32_t>(can_frame_._data + 0);
+            hw_atomics_->can_shared_axis_state_          [axis] = read_le<uint8_t>(can_frame_._data + 4);
+            hw_atomics_->can_shared_procedure_result_    [axis] = read_le<uint8_t>(can_frame_._data + 5);
+            hw_atomics_->can_shared_trajectory_done_flag_[axis] = read_le<bool>(can_frame_._data + 6);
             break;
         }
-        /*
         case CmdId::kGetError: {
-            if (!verify_length("kGetError", 8, frame.len)) break;
-            std::lock_guard<std::mutex> guard(odrv_stat_mutex_);
-            odrv_stat_.active_errors = read_le<uint32_t>(frame.data + 0);
-            odrv_stat_.disarm_reason = read_le<uint32_t>(frame.data + 4);
-            odrv_pub_flag_ |= 0b001;
+            hw_atomics_->can_shared_active_errors_ [axis] = read_le<uint32_t>(can_frame_._data + 0);
+            hw_atomics_->can_shared_disarm_reason_ [axis] = read_le<uint32_t>(can_frame_._data + 4);
             break;
         }
         case CmdId::kGetEncoderEstimates: {
-            if (!verify_length("kGetEncoderEstimates", 8, frame.len)) break;
-            std::lock_guard<std::mutex> guard(ctrl_stat_mutex_);
-            ctrl_stat_.pos_estimate = read_le<float>(frame.data + 0);
-            ctrl_stat_.vel_estimate = read_le<float>(frame.data + 4);
-            ctrl_pub_flag_ |= 0b0010;
+            hw_atomics_->can_shared_positions_  [axis] = read_le<float>(can_frame_._data + 0);
+            hw_atomics_->can_shared_velocities_ [axis ]= read_le<float>(can_frame_._data + 4);
             break;
         }
         case CmdId::kGetIq: {
-            if (!verify_length("kGetIq", 8, frame.len)) break;
-            std::lock_guard<std::mutex> guard(ctrl_stat_mutex_);
-            ctrl_stat_.iq_setpoint = read_le<float>(frame.data + 0);
-            ctrl_stat_.iq_measured = read_le<float>(frame.data + 4);
-            ctrl_pub_flag_ |= 0b0100;
+            //iq_setpoint = read_le<float>(frame.data + 0);
+            hw_atomics_->can_shared_motor_currents_ [axis] = read_le<float>(can_frame_._data + 4);
             break;
         }
         case CmdId::kGetTemp: {
-            if (!verify_length("kGetTemp", 8, frame.len)) break;
-            std::lock_guard<std::mutex> guard(odrv_stat_mutex_);
-            odrv_stat_.fet_temperature   = read_le<float>(frame.data + 0);
-            odrv_stat_.motor_temperature = read_le<float>(frame.data + 4);
-            odrv_pub_flag_ |= 0b010;
+            hw_atomics_->can_shared_fet_temperatures_   [axis]= read_le<float>(can_frame_._data + 0);
+            hw_atomics_->can_shared_motor_temperatures_ [axis]= read_le<float>(can_frame_._data + 4);
             break;
         }
         case CmdId::kGetBusVoltageCurrent: {
-            if (!verify_length("kGetBusVoltageCurrent", 8, frame.len)) break;
-            std::lock_guard<std::mutex> guard(odrv_stat_mutex_);
-            odrv_stat_.bus_voltage = read_le<float>(frame.data + 0);
-            odrv_stat_.bus_current = read_le<float>(frame.data + 4);
-            odrv_pub_flag_ |= 0b100;
+            hw_atomics_->can_shared_vbus_voltages_ [axis]= read_le<float>(can_frame_._data + 0);
+            hw_atomics_->can_shared_vbus_currents_ [axis]= read_le<float>(can_frame_._data + 4);
             break;
         }
         case CmdId::kGetTorques: {
-            if (!verify_length("kGetTorques", 8, frame.len)) break;
-            std::lock_guard<std::mutex> guard(ctrl_stat_mutex_);
-            ctrl_stat_.torque_target   = read_le<float>(frame.data + 0);
-            ctrl_stat_.torque_estimate = read_le<float>(frame.data + 4);
-            ctrl_pub_flag_ |= 0b1000; 
+            hw_atomics_->can_shared_torque_targets_ [axis] = read_le<float>(can_frame_._data + 0);
+            hw_atomics_->can_shared_efforts_        [axis] = read_le<float>(can_frame_._data + 4);
             break;
-        }*/
+        }
         default: {
-            RCLCPP_WARN(rclcpp::get_logger("ODriveHardwareInterfaceCAN"), "Received unused message: ID = 0x%x", (can_id & 0x1F));
+            RCLCPP_WARN(rclcpp::get_logger("ODriveHardwareInterfaceCAN"), "Received unused message: ID = 0x%x", (cmd_id & 0x1F));
             break;
         }
         }
     }
 }
 
+/**
+ * @brief encode and send a can frame to the can <--> serial interface
+ * 
+ * @param can_id    - can_id for the endpoint device 
+ * @param cmd_id    - command id to send
+ * @param frame     - pointer to a can frame
+ * @param data_len  - data_len (number of bytes in ._data field in can_frame)
+ * @return int      - number of byte written -1 in case of error
+ */
+int odrive_can::can_send_frame(uint32_t can_id, uint32_t cmd_id, can_frame *frame, int32_t data_len) {
+    // encode
+    frame->_sof = 0xaa;
+    frame->_dlc = 0xc0|data_len;
+    frame->_frame_id = (can_id << 5) | cmd_id;
+    frame->_data[data_len] = 0x55;
+    int bytes = write(can_fd_,frame, data_len+5);
+    if (bytes < 0) {
+        ROS_ERROR("can_send_frame error %s",strerror(errno));
+    }
+    return bytes;
+}
+
 // set commands
+
+/**
+ * @brief send requested state to a odrive Axis (see enum AxisState)
+ * 
+ * @param can_id - can_id of the axis 
+ * @param state  - requested state
+ */
 void odrive_can::can_request_state(int32_t can_id, uint32_t state) {
-
+    can_frame cf_;
+    write_le<uint32_t>(state, cf_._data);
+    can_send_frame(can_id,CmdId::kSetAxisState,&cf_,4);
 }
+
+/**
+ * @brief send control mode frame
+ * 
+ * @param can_id        - can_id of the axis 
+ * @param control_mode  - control mode (see enum ControlMode)
+ * @param input_mode    - input mode (see enum InputMode)
+ */
 void odrive_can::can_set_control_mode(int32_t can_id, uint32_t control_mode , uint32_t input_mode ) {
-
+    can_frame cf_;
+    write_le<uint32_t>(control_mode, cf_._data);
+    write_le<uint32_t>(input_mode,   cf_._data + 4);
+    can_send_frame(can_id,CmdId::kSetControllerMode,&cf_,8);
 }
+
+/**
+ * @brief set the torque for an axis
+ * 
+ * @param can_id        - can_id of the axis
+ * @param input_torque  - inpute torque value
+ */
 void odrive_can::can_set_input_torque(int32_t can_id, float input_torque) {
-
+    can_frame cf_;
+    write_le<float>(input_torque, cf_._data);
+    can_send_frame(can_id,CmdId::kSetInputTorque,&cf_,4);
 }
+
+/**
+ * @brief set the input velocity for a odrive axis
+ * 
+ * @param can_id        - can_id of the axis
+ * @param input_vel     - target input velocity 
+ * @param input_torque  - input torque 
+ */
 void odrive_can::can_set_input_vel_torque(int32_t can_id, float input_vel, float input_torque) {
-
+    can_frame cf_;
+    write_le<float>(input_vel,    cf_._data);
+    write_le<float>(input_torque, cf_._data + 4);
+    can_send_frame(can_id, CmdId::kSetInputVel, &cf_,8);
 }
-void odrive_can::can_set_position(int32_t can_id, float input_pos, uint8_t input_vel, uint8_t input_torque) {
 
+/**
+ * @brief set the poistion for an axis
+ * 
+ * @param can_id        - can_id of the axis
+ * @param input_pos     - target poistion
+ * @param input_vel     - velocity
+ * @param input_torque  - torque
+ */
+void odrive_can::can_set_position(int32_t can_id, float input_pos, uint8_t input_vel, uint8_t input_torque) {
+    can_frame cf_;
+    write_le<float>(input_pos,  cf_._data);
+    write_le<int8_t>(((int8_t)((input_vel) * 1000)), cf_._data + 4);
+    write_le<int8_t>(((int8_t)((input_torque) * 1000)), cf_._data + 6);
+    can_send_frame(can_id, CmdId::kSetInputPos, &cf_,8);
 }

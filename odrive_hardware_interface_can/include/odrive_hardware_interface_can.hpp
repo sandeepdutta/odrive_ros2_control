@@ -36,7 +36,7 @@
       return return_type::ERROR;                                                           \
     }                                                                                      \
   } while (0)
-namespace odrive_hardware_interface_can {
+namespace odrive_hardware_interface {
 class ODriveHardwareInterfaceCAN : public hardware_interface::SystemInterface
 {
 public:
