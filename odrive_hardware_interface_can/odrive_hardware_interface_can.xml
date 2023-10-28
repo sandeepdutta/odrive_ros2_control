@@ -1,6 +1,6 @@
 <library path="odrive_hardware_interface_can">
-  <class name="odrive_hardware_interface_can/ODriveHardwareInterfaceCAN"
-         type="odrive_hardware_interface_can::ODriveHardwareInterfaceCAN"
+  <class name="odrive_hardware_interface/ODriveHardwareInterfaceCAN"
+         type="odrive_hardware_interface::ODriveHardwareInterfaceCAN"
          base_class_type="hardware_interface::SystemInterface">
     <description>
       ODrive plugin for ros2_control.

@@ -77,7 +77,7 @@ private:
   int32_t can_speed_;
   int32_t can_serial_speed;
   std::map<int32_t,int32_t> canid_axis_;
-  std::vector<int32_t> can_ids_;
+  std::vector<int> can_ids_;
   std::vector<int> axes_;
   std::vector<float> torque_constants_;
   std::vector<bool> enable_watchdogs_;
@@ -95,9 +95,9 @@ private:
   std::vector<double> hw_commands_velocities_;
   std::vector<double> hw_commands_efforts_;
   // shared with can interface thread
-  struct atomic_variables *hw_atomics_;
+  struct atomic_variables hw_atomics_;
   // thread pointer
-  std::unique_ptr<std::thread> can_thread_ptr_;
+  std::thread *can_thread_ptr_;
   enum class integration_level_t : int32_t
   {
     UNDEFINED = 0,
@@ -105,7 +105,7 @@ private:
     VELOCITY = 2,
     POSITION = 3
   };
-  odrive_can *odrive_can_;
+  odrive_can odrive_can_;
   std::vector<integration_level_t> control_level_;
 };
 }  // namespace odrive_hardware_interface_can

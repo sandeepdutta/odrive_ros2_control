@@ -35,6 +35,11 @@
 #define MAX_SENSORS 1
 #define MAX_CAN_FRAME_SIZE 32
 
+
+#define ROS_ERROR(...) RCLCPP_ERROR(rclcpp::get_logger("ODriveHardwareInterfaceCAN"),__VA_ARGS__)
+#define ROS_INFO(...)  RCLCPP_INFO(rclcpp::get_logger("ODriveHardwareInterfaceCAN"),__VA_ARGS__)
+#define ROS_DEBUG(...) RCLCPP_DEBUG(rclcpp::get_logger("ODriveHardwareInterfaceCAN"),__VA_ARGS__)
+
 typedef enum {
   CANUSB_SPEED_1000000 = 0x01,
   CANUSB_SPEED_800000  = 0x02,
@@ -69,21 +74,23 @@ typedef enum {
 } CANUSB_PAYLOAD_MODE;
 
 typedef struct atomic_variables {
-    std::atomic<double>   can_shared_vbus_voltages_       [MAX_AXIS] ;
-    std::atomic<double>   can_shared_vbus_currents_       [MAX_AXIS] ;
-    std::atomic<double>   can_shared_positions_           [MAX_AXIS] ;
-    std::atomic<double>   can_shared_velocities_          [MAX_AXIS] ;
-    std::atomic<double>   can_shared_efforts_             [MAX_AXIS] ;
-    std::atomic<double>   can_shared_torque_targets_      [MAX_AXIS] ;
-    std::atomic<double>   can_shared_axis_errors_         [MAX_AXIS] ;
-    std::atomic<double>   can_shared_motor_temperatures_  [MAX_AXIS] ;
-    std::atomic<double>   can_shared_fet_temperatures_    [MAX_AXIS] ;
-    std::atomic<double>   can_shared_motor_currents_      [MAX_AXIS] ;
-    std::atomic<uint32_t> can_shared_active_errors_       [MAX_AXIS];
-    std::atomic<uint8_t>  can_shared_axis_state_          [MAX_AXIS];
-    std::atomic<uint8_t>  can_shared_procedure_result_    [MAX_AXIS];
-    std::atomic<bool>     can_shared_trajectory_done_flag_[MAX_AXIS]; 
-    std::atomic<uint32_t> can_shared_disarm_reason_       [MAX_AXIS];
+    std::atomic<double>   vbus_voltages_       [MAX_AXIS] ;
+    std::atomic<double>   vbus_currents_       [MAX_AXIS] ;
+    std::atomic<double>   positions_           [MAX_AXIS] ;
+    std::atomic<double>   velocities_          [MAX_AXIS] ;
+    std::atomic<double>   efforts_             [MAX_AXIS] ;
+    std::atomic<double>   torque_targets_      [MAX_AXIS] ;
+    std::atomic<double>   axis_errors_         [MAX_AXIS] ;
+    std::atomic<double>   motor_temperatures_  [MAX_AXIS] ;
+    std::atomic<double>   fet_temperatures_    [MAX_AXIS] ;
+    std::atomic<double>   motor_currents_      [MAX_AXIS] ;
+    std::atomic<uint32_t> active_errors_       [MAX_AXIS];
+    std::atomic<uint8_t>  axis_state_          [MAX_AXIS];
+    std::atomic<uint8_t>  procedure_result_    [MAX_AXIS];
+    std::atomic<bool>     trajectory_done_flag_[MAX_AXIS]; 
+    std::atomic<uint32_t> disarm_reason_       [MAX_AXIS];
+    std::atomic<bool>     axis_debug_          [MAX_AXIS];
+    std::atomic<bool>     active;
 } atomic_variables;
 
 typedef struct can_frame {
@@ -95,25 +102,25 @@ typedef struct can_frame {
 
 class odrive_can {
 private:
-    int can_fd_;
-    atomic_variables *hw_atomics_;
-    std::map<int32_t, int32_t> *canid_axis_;
     int can_adapter_init(const char *tty, int baud, int can_speed);
     // can send frame 
     int  can_send_frame(uint32_t can_id, uint32_t cmd_id, can_frame *data, int32_t len);    
     // check if frame being received is complete
     bool can_frame_complete(const uint8_t *frame, int frame_len);
-    // receive a frame
-    int can_recv_frame(int32_t &can_id, int32_t &cmd_id, uint8_t *frame );
+
 public:
-    odrive_can(std::string *can_tty, int can_speed, atomic_variables *hw_atomics, std::map<int32_t,int32_t> *canid_axis) {
-        hw_atomics_ = hw_atomics;
-        canid_axis_ = canid_axis;
-        if ((can_fd_ = can_adapter_init(can_tty->c_str(), CANUSB_TTY_BAUD_RATE_DEFAULT, can_speed)) < 0) {
-            return;
-        }
-    }
+    atomic_variables *hw_atomics_;
+    int can_fd_;
+    std::map<int32_t, int32_t> *canid_axis_;
+    
+    odrive_can() {}
     ~odrive_can() {
+        // set all axis to idle
+        for (auto const &can_id : *canid_axis_) {
+            can_request_state(can_id.first,AXIS_STATE_IDLE);
+        }
+        hw_atomics_->active = false; // close the thread down
+        ROS_INFO("CLOSING the can interface");    
         close(can_fd_);
     }
     // set commands
@@ -121,22 +128,26 @@ public:
     void can_set_control_mode(int32_t can_id, uint32_t control_mode , uint32_t input_mode );
     void can_set_input_torque(int32_t can_id, float input_torque);
     void can_set_input_vel_torque(int32_t can_id, float input_vel, float input_torque);
-    void can_set_position(int32_t can_id, float input_pos, uint8_t input_vel, uint8_t input_torque);
-    // main thread for the can controller
-    void can_thread() ; 
-    inline bool verify_length(const std::string&name, uint8_t expected, uint8_t length) {
-        bool valid = expected == length;
-        RCLCPP_DEBUG(rclcpp::get_logger("ODriveHardwareInterfaceCAN"), "received %s", name.c_str());
-        if (!valid) RCLCPP_WARN(rclcpp::get_logger("ODriveHardwareInterfaceCAN"), "Incorrect %s frame length: %d != %d", name.c_str(), length, expected);
-        return valid;
+    void can_set_position(int32_t can_id, float input_pos, uint8_t input_vel, uint8_t input_torque); 
+    void can_init(std::string *can_tty, int can_speed, atomic_variables *hw_atomics, std::map<int32_t,int32_t> *canid_axis) {
+        hw_atomics_ = hw_atomics;
+        hw_atomics_->active = true;
+        canid_axis_ = canid_axis;
+        if ((can_fd_ = can_adapter_init(can_tty->c_str(), CANUSB_TTY_BAUD_RATE_DEFAULT, can_speed)) < 0) {
+            return;
+        }
+        ROS_INFO("Can interface initizatized %d",can_fd_);
     }
+    // receive a frame
+    int can_recv_frame(int32_t &can_id, int32_t &cmd_id, uint8_t *frame );
 };
 
-
-#define ROS_ERROR(...) RCLCPP_ERROR(rclcpp::get_logger("ODriveHardwareInterfaceCAN"),__VA_ARGS__)
-#define ROS_INFO(...)  RCLCPP_INFO(rclcpp::get_logger("ODriveHardwareInterfaceCAN"),__VA_ARGS__)
-#define ROS_DEBUG(...) RCLCPP_DEBUG(rclcpp::get_logger("ODriveHardwareInterfaceCAN"),__VA_ARGS__)
-
-
-
+inline bool verify_length(const std::string&name, uint8_t expected, uint8_t length) {
+    bool valid = expected == length;
+    RCLCPP_DEBUG(rclcpp::get_logger("ODriveHardwareInterfaceCAN"), "received %s", name.c_str());
+    if (!valid) RCLCPP_WARN(rclcpp::get_logger("ODriveHardwareInterfaceCAN"), "Incorrect %s frame length: %d != %d", name.c_str(), length, expected);
+    return valid;
+}
+// main thread for the can controller
+void can_thread(odrive_can *) ;
 #endif // ODRIVE_CAN_HPP_

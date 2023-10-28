@@ -6,7 +6,7 @@
 
     <ros2_control name="${name}" type="system">
       <hardware>
-        <plugin>odrive_hardware_interface_usb/ODriveHardwareInterfaceUSB</plugin>
+        <plugin>odrive_hardware_interface/ODriveHardwareInterfaceCAN</plugin>
       </hardware>
 
       <sensor name="odrv0">
@@ -21,7 +21,7 @@
           <param name="axis">0</param>
           <param name="can_id">${joint0_canid}</param>
           <param name="enable_watchdog">0</param>
-          <param name="reverse_control">1</param>
+          <param name="reverse_control">0</param>
           <param name="watchdog_timeout">0.1</param>
         </joint>
       </xacro:if>
@@ -32,7 +32,7 @@
           <param name="axis">1</param>
           <param name="can_id">${joint1_canid}</param>
           <param name="enable_watchdog">0</param>
-          <param name="reverse_control">0</param>
+          <param name="reverse_control">1</param>
           <param name="watchdog_timeout">0.1</param>
         </joint>
       </xacro:if>

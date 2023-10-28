@@ -89,14 +89,14 @@ int odrive_can::can_adapter_init(const char *tty, int baud, int can_speed) {
     int tty_fd, result;
     struct termios2 tio;
 
-    tty_fd = open(tty, O_RDWR | O_NOCTTY | O_NONBLOCK);
-    if (tty_fd == -1) {
+    tty_fd = open(tty, O_RDWR | O_NOCTTY | O_NONBLOCK | O_SYNC);
+    if (tty_fd < 0) {
         ROS_ERROR("open(%s) failed: %s", tty, strerror(errno));
         return -1;
     }
 
     result = ioctl(tty_fd, TCGETS2, &tio);
-    if (result == -1) {
+    if (result < 0) {
         ROS_ERROR("ioctl() failed: %s", strerror(errno));
         close(tty_fd);
         return -1;
@@ -111,7 +111,7 @@ int odrive_can::can_adapter_init(const char *tty, int baud, int can_speed) {
     tio.c_ospeed = baud;
     
     result = ioctl(tty_fd, TCSETS2, &tio);
-    if (result == -1) {
+    if (result < -1) {
         ROS_ERROR("ioctl() failed: %s", strerror(errno));
         close(tty_fd);
         return -1;
@@ -210,60 +210,76 @@ int odrive_can::can_recv_frame(int32_t &can_id, int32_t &cmd_id, uint8_t *frame)
 }
 
 // The main function assumed to be running as a thread
-void odrive_can::can_thread() {
+void can_thread(odrive_can *oc) {
     fd_set can_set;
     FD_ZERO(&can_set);
-    FD_SET(can_fd_, &can_set);
-    while (1) {
+    FD_SET(oc->can_fd_, &can_set);
+    // wait for activaton
+    while (!oc->hw_atomics_->active.load(std::memory_order_relaxed)) 
+        usleep(10);  
+    while (oc->hw_atomics_->active.load(std::memory_order_relaxed)) {
         int32_t can_id, cmd_id;
         can_frame can_frame_ ;
+        /*
         if (select(1, &can_set, NULL, NULL, NULL ) < 0) {
             ROS_ERROR("select error terminating %s",strerror(errno));
             break;
         }
+        ROS_INFO("after select");
+        */
         // file description ready to read
-        int frame_len = can_recv_frame(can_id, cmd_id, (uint8_t *)&can_frame_);
-        if (frame_len < 0) ROS_ERROR("frame receive error");
+        int frame_len = oc->can_recv_frame(can_id, cmd_id, (uint8_t *)&can_frame_);
+        if (frame_len < 0) {
+            ROS_ERROR("frame receive error");
+            continue;
+        }
+        ROS_DEBUG("received packet %02x %02x",can_id,cmd_id);
         // if we cannot determine the frame then continue
         if (cmd_id == -1) continue;
-        int axis = (*canid_axis_)[can_id];
+        int axis = (*(oc->canid_axis_))[can_id];
         if (!verify_length("response", 8, frame_len-5)) continue;
         switch(cmd_id) {
         case CmdId::kHeartbeat: {
-            hw_atomics_->can_shared_active_errors_       [axis] = read_le<uint32_t>(can_frame_._data + 0);
-            hw_atomics_->can_shared_axis_state_          [axis] = read_le<uint8_t>(can_frame_._data + 4);
-            hw_atomics_->can_shared_procedure_result_    [axis] = read_le<uint8_t>(can_frame_._data + 5);
-            hw_atomics_->can_shared_trajectory_done_flag_[axis] = read_le<bool>(can_frame_._data + 6);
+            oc->hw_atomics_->active_errors_       [axis] = read_le<uint32_t>(can_frame_._data + 0);
+            oc->hw_atomics_->axis_state_          [axis] = read_le<uint8_t>(can_frame_._data + 4);
+            oc->hw_atomics_->procedure_result_    [axis] = read_le<uint8_t>(can_frame_._data + 5);
+            oc->hw_atomics_->trajectory_done_flag_[axis] = read_le<bool>(can_frame_._data + 6);
+            if (oc->hw_atomics_->axis_debug_[axis]) {
+                ROS_INFO("received heartbeat axis %d state %d active_errors 0x%x",
+                         axis,
+                         read_le<uint32_t>(can_frame_._data + 0),
+                         read_le<uint32_t>(can_frame_._data + 4));
+            }
             break;
         }
         case CmdId::kGetError: {
-            hw_atomics_->can_shared_active_errors_ [axis] = read_le<uint32_t>(can_frame_._data + 0);
-            hw_atomics_->can_shared_disarm_reason_ [axis] = read_le<uint32_t>(can_frame_._data + 4);
+            oc->hw_atomics_->active_errors_ [axis] = read_le<uint32_t>(can_frame_._data + 0);
+            oc->hw_atomics_->disarm_reason_ [axis] = read_le<uint32_t>(can_frame_._data + 4);
             break;
         }
         case CmdId::kGetEncoderEstimates: {
-            hw_atomics_->can_shared_positions_  [axis] = read_le<float>(can_frame_._data + 0);
-            hw_atomics_->can_shared_velocities_ [axis ]= read_le<float>(can_frame_._data + 4);
+            oc->hw_atomics_->positions_  [axis] = read_le<float>(can_frame_._data + 0);
+            oc->hw_atomics_->velocities_ [axis ]= read_le<float>(can_frame_._data + 4);
             break;
         }
         case CmdId::kGetIq: {
             //iq_setpoint = read_le<float>(frame.data + 0);
-            hw_atomics_->can_shared_motor_currents_ [axis] = read_le<float>(can_frame_._data + 4);
+            oc->hw_atomics_->motor_currents_ [axis] = read_le<float>(can_frame_._data + 4);
             break;
         }
         case CmdId::kGetTemp: {
-            hw_atomics_->can_shared_fet_temperatures_   [axis]= read_le<float>(can_frame_._data + 0);
-            hw_atomics_->can_shared_motor_temperatures_ [axis]= read_le<float>(can_frame_._data + 4);
+            oc->hw_atomics_->fet_temperatures_   [axis]= read_le<float>(can_frame_._data + 0);
+            oc->hw_atomics_->motor_temperatures_ [axis]= read_le<float>(can_frame_._data + 4);
             break;
         }
         case CmdId::kGetBusVoltageCurrent: {
-            hw_atomics_->can_shared_vbus_voltages_ [axis]= read_le<float>(can_frame_._data + 0);
-            hw_atomics_->can_shared_vbus_currents_ [axis]= read_le<float>(can_frame_._data + 4);
+            oc->hw_atomics_->vbus_voltages_ [axis]= read_le<float>(can_frame_._data + 0);
+            oc->hw_atomics_->vbus_currents_ [axis]= read_le<float>(can_frame_._data + 4);
             break;
         }
         case CmdId::kGetTorques: {
-            hw_atomics_->can_shared_torque_targets_ [axis] = read_le<float>(can_frame_._data + 0);
-            hw_atomics_->can_shared_efforts_        [axis] = read_le<float>(can_frame_._data + 4);
+            oc->hw_atomics_->torque_targets_ [axis] = read_le<float>(can_frame_._data + 0);
+            oc->hw_atomics_->efforts_        [axis] = read_le<float>(can_frame_._data + 4);
             break;
         }
         default: {
@@ -287,12 +303,22 @@ int odrive_can::can_send_frame(uint32_t can_id, uint32_t cmd_id, can_frame *fram
     // encode
     frame->_sof = 0xaa;
     frame->_dlc = 0xc0|data_len;
-    frame->_frame_id = (can_id << 5) | cmd_id;
+    write_le<uint16_t>((can_id << 5) | cmd_id, (uint8_t*)(&frame->_frame_id));
     frame->_data[data_len] = 0x55;
     int bytes = write(can_fd_,frame, data_len+5);
     if (bytes < 0) {
-        ROS_ERROR("can_send_frame error %s",strerror(errno));
+        char dbg_str[200], *s = dbg_str;
+        ROS_ERROR("can_send_frame error %d %s",can_fd_,strerror(errno));
+        sprintf(s,"%02x %02x %04x ",frame->_sof, frame->_dlc, read_le<uint16_t>((uint8_t*)&frame->_frame_id));
+        s += 11;
+        for (int i = 0 ; i <= data_len; i++) {
+            sprintf(s,"%02x ",frame->_data[i]);
+            s+=3;
+        }
+        *s= '\0';
+        ROS_ERROR("packet %s",dbg_str);
     }
+    //usleep(20);
     return bytes;
 }
 
@@ -305,9 +331,19 @@ int odrive_can::can_send_frame(uint32_t can_id, uint32_t cmd_id, can_frame *fram
  * @param state  - requested state
  */
 void odrive_can::can_request_state(int32_t can_id, uint32_t state) {
-    can_frame cf_;
+    can_frame cf_ ;
+    memset(&cf_,0,sizeof(cf_));
     write_le<uint32_t>(state, cf_._data);
     can_send_frame(can_id,CmdId::kSetAxisState,&cf_,4);
+    // wait for the axis to switch to state
+    int axis = (*(canid_axis_))[can_id];
+    ROS_INFO("waiting for axis %d to goto state %d", axis,state);
+    hw_atomics_->axis_debug_[axis] = true;
+    while (hw_atomics_->axis_state_[axis].load(std::memory_order_relaxed) != state) {
+        usleep(10);   
+    }
+    hw_atomics_->axis_debug_[axis] = false;
+
 }
 
 /**
@@ -319,6 +355,7 @@ void odrive_can::can_request_state(int32_t can_id, uint32_t state) {
  */
 void odrive_can::can_set_control_mode(int32_t can_id, uint32_t control_mode , uint32_t input_mode ) {
     can_frame cf_;
+    memset(&cf_,0,sizeof(cf_));
     write_le<uint32_t>(control_mode, cf_._data);
     write_le<uint32_t>(input_mode,   cf_._data + 4);
     can_send_frame(can_id,CmdId::kSetControllerMode,&cf_,8);
@@ -332,6 +369,7 @@ void odrive_can::can_set_control_mode(int32_t can_id, uint32_t control_mode , ui
  */
 void odrive_can::can_set_input_torque(int32_t can_id, float input_torque) {
     can_frame cf_;
+    memset(&cf_,0,sizeof(cf_));
     write_le<float>(input_torque, cf_._data);
     can_send_frame(can_id,CmdId::kSetInputTorque,&cf_,4);
 }
@@ -345,6 +383,7 @@ void odrive_can::can_set_input_torque(int32_t can_id, float input_torque) {
  */
 void odrive_can::can_set_input_vel_torque(int32_t can_id, float input_vel, float input_torque) {
     can_frame cf_;
+    memset(&cf_,0,sizeof(cf_));
     write_le<float>(input_vel,    cf_._data);
     write_le<float>(input_torque, cf_._data + 4);
     can_send_frame(can_id, CmdId::kSetInputVel, &cf_,8);
@@ -360,6 +399,7 @@ void odrive_can::can_set_input_vel_torque(int32_t can_id, float input_vel, float
  */
 void odrive_can::can_set_position(int32_t can_id, float input_pos, uint8_t input_vel, uint8_t input_torque) {
     can_frame cf_;
+    memset(&cf_,0,sizeof(cf_));
     write_le<float>(input_pos,  cf_._data);
     write_le<int8_t>(((int8_t)((input_vel) * 1000)), cf_._data + 4);
     write_le<int8_t>(((int8_t)((input_torque) * 1000)), cf_._data + 6);

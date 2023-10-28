@@ -10,12 +10,12 @@ hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_init(const har
     return  hardware_interface::CallbackReturn::ERROR;
   }
 
-  can_ids_.resize(info_.joints.size());
-  torque_constants_.resize(info_.joints.size());
+  can_ids_.resize(info_.joints.size(),-1);
+  axes_.resize(info_.joints.size(),-1);
+  torque_constants_.resize(info_.joints.size(),-1);
   reverse_control_.resize(info_.joints.size(), false);
   enable_watchdogs_.resize(info_.joints.size());
-  hw_atomics_ = new struct atomic_variables();
-
+  
   // state interfaces
   hw_vbus_voltages_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
@@ -32,21 +32,22 @@ hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_init(const har
   /* odrive global parameters */
   for (const hardware_interface::ComponentInfo & sensor : info_.sensors) {
     can_tty_ = new std::string(sensor.parameters.at("can_tty"));
-    can_speed_    = std::stoi(sensor.parameters.at("can_speed"));
+    can_speed_ = std::stoi(sensor.parameters.at("can_speed"));
+    ROS_INFO(" can_tty %s, can_speed %d",can_tty_->c_str(), can_speed_);
   }
   /* axis related parameters */
-  for (const hardware_interface::ComponentInfo & joint : info_.joints) {
-    can_ids_.emplace_back(std::stoull(joint.parameters.at("can_id"), 0, 16));
-    axes_.emplace_back(std::stoi(joint.parameters.at("axis")));
-  }
-  // create the canid <--> axis map
+  /* &&  create the canid <--> axis map */
   for (size_t i = 0 ; i < info_.joints.size(); i++) {
+    reverse_control_[i]  = std::stoi(info_.joints[i].parameters.at("reverse_control")) ? true : false;
+    axes_[i] = std::stoi(info_.joints[i].parameters.at("axis"));
+    can_ids_[i] = std::stoi(info_.joints[i].parameters.at("can_id"));
     canid_axis_[can_ids_[i]] = axes_[i]; 
+    ROS_INFO("can id %d mapped to axis %d reversed %s", can_ids_[i], axes_[i], (reverse_control_[i] ? "true" : "false"));
   }
-  odrive_can_ = new odrive_can(can_tty_, can_speed_, hw_atomics_, &canid_axis_); // open and initialize the can <-> serila interface
+  odrive_can_.can_init(can_tty_, can_speed_, &hw_atomics_, &canid_axis_); // open and initialize the can <-> serila interface
   // start the odrive thread
-  can_thread_ptr_ = std::unique_ptr<std::thread>(new std::thread(std::bind(&odrive_can::can_thread,*odrive_can_)));
-
+  can_thread_ptr_ = new std::thread(can_thread,&odrive_can_);
+  control_level_.resize(info_.joints.size(), integration_level_t::UNDEFINED);
   ROS_INFO("Configured");
   return  hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -56,7 +57,7 @@ std::vector<hardware_interface::StateInterface> ODriveHardwareInterfaceCAN::expo
   std::vector<hardware_interface::StateInterface> state_interfaces;
 
   for (size_t i = 0; i < info_.joints.size(); i++) {
-    state_interfaces.emplace_back(hardware_interface::StateInterface(info_.sensors[i].name, "vbus_voltage", &hw_vbus_voltages_[i]));
+    state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, "vbus_voltage", &hw_vbus_voltages_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_efforts_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &hw_velocities_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, hardware_interface::HW_IF_POSITION, &hw_positions_[i]));
@@ -96,17 +97,17 @@ std::vector<hardware_interface::CommandInterface> ODriveHardwareInterfaceCAN::ex
   for (std::string key : start_interfaces) {
     for (size_t i = 0; i < info_.joints.size(); i++) {
       if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_EFFORT) {
-        ROS_INFO("Command interface switching to %s for joint %s",key.c_str(),info_.joints[i].name.c_str());
+        ROS_INFO("Command interface switching to EFFORT %s for joint %s",key.c_str(),info_.joints[i].name.c_str());
         control_level_[i] = integration_level_t::EFFORT;
       }
 
       if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_VELOCITY) {
-        ROS_INFO("Command interface switching to %s for joint %s",key.c_str(),info_.joints[i].name.c_str());
+        ROS_INFO("Command interface switching to VELOCITY %s for joint %s",key.c_str(),info_.joints[i].name.c_str());
         control_level_[i] = integration_level_t::VELOCITY;
       }
 
       if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_POSITION) {
-        ROS_INFO("Command interface switching to %s for joint %s",key.c_str(),info_.joints[i].name.c_str());
+        ROS_INFO("Command interface switching to POSITION %s for joint %s",key.c_str(),info_.joints[i].name.c_str());
         control_level_[i] = integration_level_t::POSITION;
       }
     }
@@ -124,34 +125,34 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::perform_command_mode
 
     switch (control_level_[i]) {
     case integration_level_t::UNDEFINED:
-        odrive_can_->can_request_state(can_ids_[i],AXIS_STATE_IDLE);
+        odrive_can_.can_request_state(can_ids_[i],AXIS_STATE_IDLE);
         break;
 
       case integration_level_t::EFFORT:
-        hw_commands_efforts_[i] = hw_efforts_[i];
-        odrive_can_->can_set_control_mode(can_ids_[i],CONTROL_MODE_TORQUE_CONTROL, INPUT_MODE_PASSTHROUGH);
-        odrive_can_->can_set_input_torque(can_ids_[i], (hw_commands_efforts_[i] * (reverse_control_[i] ? -1.0 : 1.0)));
-        odrive_can_->can_request_state(can_ids_[i],AXIS_STATE_CLOSED_LOOP_CONTROL);
+        hw_commands_efforts_[i] = 0; // hw_efforts_[i];
+        odrive_can_.can_set_control_mode(can_ids_[i],CONTROL_MODE_TORQUE_CONTROL, INPUT_MODE_PASSTHROUGH);
+        odrive_can_.can_set_input_torque(can_ids_[i], (hw_commands_efforts_[i] * (reverse_control_[i] ? -1.0 : 1.0)));
+        odrive_can_.can_request_state(can_ids_[i],AXIS_STATE_CLOSED_LOOP_CONTROL);
         break;
 
       case integration_level_t::VELOCITY:
-        hw_commands_velocities_[i] = hw_velocities_[i];
+        hw_commands_velocities_[i] = 0; // hw_velocities_[i];
         hw_commands_efforts_[i] = 0;
-        odrive_can_->can_set_control_mode(can_ids_[i],CONTROL_MODE_VELOCITY_CONTROL, INPUT_MODE_PASSTHROUGH);
+        odrive_can_.can_set_control_mode(can_ids_[i],CONTROL_MODE_VELOCITY_CONTROL, INPUT_MODE_PASSTHROUGH);
         input_vel = (hw_commands_velocities_[i] / 2 / M_PI) * (reverse_control_[i] ? -1.0 : 1.0);
         input_torque = hw_commands_efforts_[i] * (reverse_control_[i] ? -1.0 : 1.0);
-        odrive_can_->can_set_input_vel_torque(can_ids_[i], input_vel, input_torque);
-        odrive_can_->can_request_state(can_ids_[i],AXIS_STATE_CLOSED_LOOP_CONTROL);
+        odrive_can_.can_set_input_vel_torque(can_ids_[i], input_vel, input_torque);
+        odrive_can_.can_request_state(can_ids_[i],AXIS_STATE_CLOSED_LOOP_CONTROL);
         break;
 
       case integration_level_t::POSITION:
         hw_commands_positions_[i] = hw_positions_[i];
         hw_commands_velocities_[i] = 0;
         hw_commands_efforts_[i] = 0;
-        odrive_can_->can_set_control_mode(can_ids_[i],CONTROL_MODE_POSITION_CONTROL, INPUT_MODE_PASSTHROUGH);
+        odrive_can_.can_set_control_mode(can_ids_[i],CONTROL_MODE_POSITION_CONTROL, INPUT_MODE_PASSTHROUGH);
         input_pos = (hw_commands_positions_[i] / 2 / M_PI) * (reverse_control_[i] ? -1.0 : 1.0);
-        odrive_can_->can_set_position(can_ids_[i],input_pos,0,0);
-        odrive_can_->can_request_state(can_ids_[i],AXIS_STATE_CLOSED_LOOP_CONTROL);
+        odrive_can_.can_set_position(can_ids_[i],input_pos,0,0);
+        odrive_can_.can_request_state(can_ids_[i],AXIS_STATE_CLOSED_LOOP_CONTROL);
         break;
     }
   }
@@ -161,7 +162,7 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::perform_command_mode
 
 hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_activate(const rclcpp_lifecycle::State & /*previous_state*/)
 {
-  ROS_INFO("Start called ...");
+  ROS_INFO("Activate called ...");
 
 
   //status_ = hardware_interface::status::STARTED;
@@ -170,9 +171,9 @@ hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_activate(const
 
 hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_deactivate(const rclcpp_lifecycle::State & /*previous_state*/)
 {
-  uint8_t requested_state = AXIS_STATE_IDLE;
+  ROS_INFO("Deactivate callled");
   for (size_t i = 0; i < info_.joints.size(); i++) {
-    odrive_can_->can_request_state(can_ids_[i],AXIS_STATE_CLOSED_LOOP_CONTROL);
+    odrive_can_.can_request_state(can_ids_[i],AXIS_STATE_IDLE);
   }
   return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -183,16 +184,16 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::read(
 
   // read from the can shared variables to the state variables
   for (size_t i = 0; i < info_.sensors.size(); i++) {
-    hw_vbus_voltages_[i] = hw_atomics_->can_shared_vbus_voltages_[i].load(std::memory_order_relaxed);
+    hw_vbus_voltages_[i] = hw_atomics_.vbus_voltages_[i].load(std::memory_order_relaxed);
   }
 
   for (size_t i = 0; i < info_.joints.size(); i++) {
-    hw_positions_[i]  = hw_atomics_->can_shared_positions_[i].load(std::memory_order_relaxed)  * 2 * M_PI * (reverse_control_[i] ? -1.0 : 1.0);
-    hw_velocities_[i] = hw_atomics_->can_shared_velocities_[i].load(std::memory_order_relaxed) * 2 * M_PI * (reverse_control_[i] ? -1.0 : 1.0);
-    hw_efforts_[i]    =  hw_atomics_->can_shared_efforts_[i].load(std::memory_order_relaxed);
-    hw_axis_errors_[i]        = hw_atomics_->can_shared_axis_errors_[i].load(std::memory_order_relaxed);
-    hw_motor_temperatures_[i] =  hw_atomics_->can_shared_motor_temperatures_[i].load(std::memory_order_relaxed);
-    hw_motor_current_[i]      =  hw_atomics_->can_shared_motor_currents_[i].load(std::memory_order_relaxed);
+    hw_positions_[i]  = hw_atomics_.positions_[i].load(std::memory_order_relaxed)  * 2 * M_PI * (reverse_control_[i] ? -1.0 : 1.0);
+    hw_velocities_[i] = hw_atomics_.velocities_[i].load(std::memory_order_relaxed) * 2 * M_PI * (reverse_control_[i] ? -1.0 : 1.0);
+    hw_efforts_[i]    =  hw_atomics_.efforts_[i].load(std::memory_order_relaxed);
+    hw_axis_errors_[i]        = hw_atomics_.axis_errors_[i].load(std::memory_order_relaxed);
+    hw_motor_temperatures_[i] =  hw_atomics_.motor_temperatures_[i].load(std::memory_order_relaxed);
+    hw_motor_current_[i]      =  hw_atomics_.motor_currents_[i].load(std::memory_order_relaxed);
   }
 
   return hardware_interface::return_type::OK;
@@ -208,17 +209,17 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::write(
     case integration_level_t::POSITION:
       input_pos = (hw_commands_positions_[i] / 2 / M_PI) * (reverse_control_[i] ? -1.0 : 1.0);
       ROS_DEBUG("::write %ld POSITION %f", i,input_pos);
-      odrive_can_->can_set_position(can_ids_[i], input_pos, 0, 0);
+      odrive_can_.can_set_position(can_ids_[i], input_pos, 0, 0);
       break;
     case integration_level_t::VELOCITY:
       input_vel = (hw_commands_velocities_[i] / 2 / M_PI) * (reverse_control_[i] ? -1.0 : 1.0);
       ROS_DEBUG("::write %ld VELOCITY %f", i,input_vel);
-      odrive_can_->can_set_input_vel_torque(can_ids_[i], input_vel, 0.0);
+      odrive_can_.can_set_input_vel_torque(can_ids_[i], input_vel, 0.0);
       break;
     case integration_level_t::EFFORT:
       input_torque = hw_commands_efforts_[i] * (reverse_control_[i] ? -1.0 : 1.0);
       ROS_DEBUG("::write %ld EFFORT %f", i,input_torque);
-      odrive_can_->can_set_input_torque(can_ids_[i], input_torque);
+      odrive_can_.can_set_input_torque(can_ids_[i], input_torque);
       break;
     }
   }
