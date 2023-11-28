@@ -19,7 +19,7 @@ diffbot_base_controller:
 
     wheel_separation: 0.366
     wheels_per_side: 1  # actually 2, but both are controlled by 1 signal
-    wheel_radius: 0.085
+    wheel_radius: 0.08520
 
     wheel_separation_multiplier: 1.0
     left_wheel_radius_multiplier: 1.0
@@ -32,7 +32,7 @@ diffbot_base_controller:
     twist_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
 
     open_loop: false
-    position_feedback: false
+    position_feedback: true
     publish_diagnostics: true
     enable_odom_tf: false
 

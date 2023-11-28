@@ -14,8 +14,8 @@
     name="ODriveDiffBot"
     serial_number="2054368F424D"
     can_tty="/dev/ttyUSB0"
-    joint0_canid="1"
-    joint1_canid="2"
+    axis0_canid="1"
+    axis1_canid="2"
     joint1_name="$(arg prefix)Right_wheel_joint"
     joint0_name="$(arg prefix)Left_wheel_joint" />
 
@@ -36,7 +36,7 @@
 -->
   <xacro:arg name="camera_name"   default="zedm" />
   <xacro:arg name="camera_model"  default="zedm" />
-  <xacro:arg name="base_frame"    default="Camera_IMU_1" />
+  <xacro:arg name="base_frame"    default="Camera_IMU_Front_1" />
   <xacro:arg name="cam_pos_x"     default="0.0" />
   <xacro:arg name="cam_pos_y"     default="0.0" />
   <xacro:arg name="cam_pos_z"     default="0.0" />
@@ -46,22 +46,18 @@
   <xacro:arg name="gnss_frame"    default="" />
 
   <xacro:include filename="$(find zed_wrapper)/urdf/zed_macro.urdf.xacro" />
-  <xacro:zed_camera name="$(arg camera_name)" model="$(arg camera_model)" parent="$(arg base_frame)">
-    <origin 
-      xyz="$(arg cam_pos_x) $(arg cam_pos_y) $(arg cam_pos_z)" 
-      rpy="$(arg cam_roll) $(arg cam_pitch) $(arg cam_yaw)"
-    />
+  <xacro:zed_camera name="zedm_front" model="$(arg camera_model)">
   </xacro:zed_camera>
-
-  <xacro:property name="gnss_frame" value="$(arg gnss_frame)"/>
-
-  <!-- Set the position of the GNSS sensor relative to base_link if used -->
-  <xacro:if value="${gnss_frame != ''}">
-    <link name="$(arg gnss_frame)" />
-    <joint name="$(arg gnss_frame)_joint" type="fixed">
-      <parent link="$(arg base_frame)"/>
-      <child link="$(arg gnss_frame)"/>
-      <origin xyz="0 0 0.5" rpy="0 0 0" />
-    </joint>
-  </xacro:if>
+  <joint name="Camera_IMU_Front_joint_f" type="fixed">
+    <origin xyz="0 0 0" rpy="0 -0.20943951023932 0"/>
+    <child link="zedm_front_camera_link"/>
+    <parent link="Camera_IMU_Front_1"/>
+  </joint>
+  <xacro:zed_camera name="zedm_back" model="$(arg camera_model)">
+  </xacro:zed_camera>
+  <joint name="Camera_IMU_Back_joint_f" type="fixed">
+    <origin xyz="0 0 0" rpy="0 -0.20943951023932 3.141592653589793"/>
+    <child link="zedm_back_camera_link"/>
+    <parent link="Camera_IMU_Back_1"/>
+  </joint>
 </robot>

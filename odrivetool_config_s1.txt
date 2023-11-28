@@ -60,3 +60,7 @@ odrv0.axis0.config.can.is_extended              = False
 odrv0.axis0.config.can.temperature_msg_rate_ms  = 1000  # 1 HZ (uint32)
 odrv0.axis0.config.can.torques_msg_rate_ms      = 0     # Disabled (uint32)
 odrv0.axis0.config.can.version_msg_rate_ms      = 0     # Disabled (uint32)
+
+# gain values
+odrv0.axis0.controller.config.vel_gain = 5.8159050941467285
+odrv0.axis0.controller.config.vel_integrator_gain = 58.159053802490234

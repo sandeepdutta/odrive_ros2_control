@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <asm/termbits.h> /* struct termios2 */
 #include <sys/select.h>
+#include <sys/poll.h>
 #include <time.h>
 #include <ctype.h>
 #include <signal.h>
@@ -37,6 +38,7 @@
 
 
 #define ROS_ERROR(...) RCLCPP_ERROR(rclcpp::get_logger("ODriveHardwareInterfaceCAN"),__VA_ARGS__)
+#define ROS_WARN(...) RCLCPP_WARN(rclcpp::get_logger("ODriveHardwareInterfaceCAN"),__VA_ARGS__)
 #define ROS_INFO(...)  RCLCPP_INFO(rclcpp::get_logger("ODriveHardwareInterfaceCAN"),__VA_ARGS__)
 #define ROS_DEBUG(...) RCLCPP_DEBUG(rclcpp::get_logger("ODriveHardwareInterfaceCAN"),__VA_ARGS__)
 
@@ -74,16 +76,16 @@ typedef enum {
 } CANUSB_PAYLOAD_MODE;
 
 typedef struct atomic_variables {
-    std::atomic<double>   vbus_voltages_       [MAX_AXIS] ;
-    std::atomic<double>   vbus_currents_       [MAX_AXIS] ;
-    std::atomic<double>   positions_           [MAX_AXIS] ;
-    std::atomic<double>   velocities_          [MAX_AXIS] ;
-    std::atomic<double>   efforts_             [MAX_AXIS] ;
-    std::atomic<double>   torque_targets_      [MAX_AXIS] ;
-    std::atomic<double>   axis_errors_         [MAX_AXIS] ;
-    std::atomic<double>   motor_temperatures_  [MAX_AXIS] ;
-    std::atomic<double>   fet_temperatures_    [MAX_AXIS] ;
-    std::atomic<double>   motor_currents_      [MAX_AXIS] ;
+    std::atomic<float>   vbus_voltages_       [MAX_AXIS] ;
+    std::atomic<float>   vbus_currents_       [MAX_AXIS] ;
+    std::atomic<float>   positions_           [MAX_AXIS] ;
+    std::atomic<float>   velocities_          [MAX_AXIS] ;
+    std::atomic<float>   efforts_             [MAX_AXIS] ;
+    std::atomic<float>   torque_targets_      [MAX_AXIS] ;
+    std::atomic<float>   axis_errors_         [MAX_AXIS] ;
+    std::atomic<float>   motor_temperatures_  [MAX_AXIS] ;
+    std::atomic<float>   fet_temperatures_    [MAX_AXIS] ;
+    std::atomic<float>   motor_currents_      [MAX_AXIS] ;
     std::atomic<uint32_t> active_errors_       [MAX_AXIS];
     std::atomic<uint8_t>  axis_state_          [MAX_AXIS];
     std::atomic<uint8_t>  procedure_result_    [MAX_AXIS];

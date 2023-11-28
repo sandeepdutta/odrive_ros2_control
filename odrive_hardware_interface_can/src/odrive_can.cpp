@@ -211,22 +211,25 @@ int odrive_can::can_recv_frame(int32_t &can_id, int32_t &cmd_id, uint8_t *frame)
 
 // The main function assumed to be running as a thread
 void can_thread(odrive_can *oc) {
-    fd_set can_set;
-    FD_ZERO(&can_set);
-    FD_SET(oc->can_fd_, &can_set);
+    struct pollfd fds[1];
+    int poll_r;
     // wait for activaton
     while (!oc->hw_atomics_->active.load(std::memory_order_relaxed)) 
         usleep(10);  
     while (oc->hw_atomics_->active.load(std::memory_order_relaxed)) {
         int32_t can_id, cmd_id;
         can_frame can_frame_ ;
-        /*
-        if (select(1, &can_set, NULL, NULL, NULL ) < 0) {
-            ROS_ERROR("select error terminating %s",strerror(errno));
-            break;
+        fds[0].fd = oc->can_fd_;
+        fds[0].events = POLLIN;
+        // wait for 1 second for an event from the can interface
+        if ((poll_r =  poll( fds, 1, 1000)) < 0) {
+            ROS_ERROR("poll error  %s",strerror(errno));
+            continue;
         }
-        ROS_INFO("after select");
-        */
+        if (poll_r == 0) {
+            ROS_WARN("poll timedout retrying %0x", oc->hw_atomics_->active_errors_[0].load(std::memory_order_relaxed));
+            continue;
+        }
         // file description ready to read
         int frame_len = oc->can_recv_frame(can_id, cmd_id, (uint8_t *)&can_frame_);
         if (frame_len < 0) {
@@ -245,7 +248,7 @@ void can_thread(odrive_can *oc) {
             oc->hw_atomics_->procedure_result_    [axis] = read_le<uint8_t>(can_frame_._data + 5);
             oc->hw_atomics_->trajectory_done_flag_[axis] = read_le<bool>(can_frame_._data + 6);
             if (oc->hw_atomics_->axis_debug_[axis]) {
-                ROS_INFO("received heartbeat axis %d state %d active_errors 0x%x",
+                ROS_DEBUG("received heartbeat axis %d state %d active_errors 0x%x",
                          axis,
                          read_le<uint32_t>(can_frame_._data + 0),
                          read_le<uint32_t>(can_frame_._data + 4));
@@ -259,7 +262,11 @@ void can_thread(odrive_can *oc) {
         }
         case CmdId::kGetEncoderEstimates: {
             oc->hw_atomics_->positions_  [axis] = read_le<float>(can_frame_._data + 0);
-            oc->hw_atomics_->velocities_ [axis ]= read_le<float>(can_frame_._data + 4);
+            oc->hw_atomics_->velocities_ [axis] = read_le<float>(can_frame_._data + 4);
+            ROS_DEBUG("kGetEncoderEstimates asix %d pos %f vel %f",
+                     axis, 
+                     oc->hw_atomics_->positions_[axis].load(std::memory_order_relaxed),
+                     oc->hw_atomics_->velocities_[axis].load(std::memory_order_relaxed));
             break;
         }
         case CmdId::kGetIq: {
