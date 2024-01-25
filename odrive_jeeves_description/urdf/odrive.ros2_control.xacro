@@ -23,6 +23,8 @@
           <param name="enable_watchdog">0</param>
           <param name="reverse_control">1</param>
           <param name="watchdog_timeout">0.1</param>
+          <param name="vel_gain">4.361928939819336</param>
+          <param name="vel_integrator_gain">1.3249359130859375</param>
         </joint>
       </xacro:if>
 
@@ -34,6 +36,8 @@
           <param name="enable_watchdog">0</param>
           <param name="reverse_control">0</param>
           <param name="watchdog_timeout">0.1</param>
+          <param name="vel_gain">2.907952626546224</param>
+          <param name="vel_integrator_gain">1.3249359130859375</param>
         </joint>
       </xacro:if>
     </ros2_control>

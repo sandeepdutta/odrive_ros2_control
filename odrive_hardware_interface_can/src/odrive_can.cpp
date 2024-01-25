@@ -263,6 +263,9 @@ void can_thread(odrive_can *oc) {
         case CmdId::kGetEncoderEstimates: {
             oc->hw_atomics_->positions_  [axis] = read_le<float>(can_frame_._data + 0);
             oc->hw_atomics_->velocities_ [axis] = read_le<float>(can_frame_._data + 4);
+            // clamp velocities within reasonable values
+            if (oc->hw_atomics_->velocities_[axis] > 10.0 || oc->hw_atomics_->velocities_[axis] < -10.0)
+                oc->hw_atomics_->velocities_[axis] = 0.0;
             ROS_DEBUG("kGetEncoderEstimates asix %d pos %f vel %f",
                      axis, 
                      oc->hw_atomics_->positions_[axis].load(std::memory_order_relaxed),
@@ -411,4 +414,19 @@ void odrive_can::can_set_position(int32_t can_id, float input_pos, uint8_t input
     write_le<int8_t>(((int8_t)((input_vel) * 1000)), cf_._data + 4);
     write_le<int8_t>(((int8_t)((input_torque) * 1000)), cf_._data + 6);
     can_send_frame(can_id, CmdId::kSetInputPos, &cf_,8);
+}
+
+void odrive_can::can_set_absolute_position(int32_t can_id, float abs_pos) {
+    can_frame cf_;
+    memset(&cf_,0,sizeof(cf_));
+    write_le<float>(abs_pos,  cf_._data);
+    can_send_frame(can_id, CmdId::kSetAbsolutePos, &cf_,4);
+}
+
+void odrive_can::can_set_vel_gains(int32_t can_id, float vel_gain, float vel_integrator_gain) {
+    can_frame cf_;
+    memset(&cf_,0,sizeof(cf_));
+    write_le<float>(vel_gain,cf_._data);
+    write_le<float>(vel_integrator_gain,cf_._data+4);
+    can_send_frame(can_id, CmdId::kSetVelGains, &cf_, 8);  
 }

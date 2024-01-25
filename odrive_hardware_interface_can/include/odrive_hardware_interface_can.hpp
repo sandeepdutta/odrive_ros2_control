@@ -79,9 +79,14 @@ private:
   std::map<int32_t,int32_t> canid_axis_;
   std::vector<int> can_ids_;
   std::vector<int> axes_;
+  std::vector<float> vel_gain_;
+  std::vector<float> vel_integrator_gain_;
   std::vector<float> torque_constants_;
   std::vector<bool> enable_watchdogs_;
   std::vector<bool> reverse_control_;
+  std::vector<bool> hw_cmd_vel_zero_;
+  std::vector<float> hw_vel_prev_value_;
+  std::vector<bool> hw_vel_suppress_;
   // state interfaces valriables
   std::vector<double> hw_vbus_voltages_;
   std::vector<double> hw_positions_;

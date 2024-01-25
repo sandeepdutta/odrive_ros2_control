@@ -17,7 +17,11 @@ enum CmdId : uint32_t {
     kGetIq = 0x014,                // ControllerStatus  - publisher
     kGetTemp,                      // SystemStatus      - publisher
     kGetBusVoltageCurrent = 0x017, // SystemStatus      - publisher
-    kGetTorques = 0x01c,           // ControllerStatus  - publisher
+    kClearErros = 0x018,
+    kSetAbsolutePos = 0x019,
+    kSetPosGain  = 0x01a,
+    kSetVelGains = 0x01b,
+    kGetTorques  = 0x01c,           // ControllerStatus  - publisher
 };
 
 enum ControlMode_ : uint64_t {

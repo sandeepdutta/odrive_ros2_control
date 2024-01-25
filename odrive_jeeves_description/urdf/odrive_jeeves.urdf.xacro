@@ -19,19 +19,17 @@
     joint1_name="$(arg prefix)Right_wheel_joint"
     joint0_name="$(arg prefix)Left_wheel_joint" />
 
-  <!--
   <xacro:arg name="use_nominal_extrinsics" default="true"/>
   <xacro:arg name="use_mesh" default="false"/>
   <xacro:include filename="$(find realsense2_description)/urdf/_d435.urdf.xacro" />
 
   <xacro:sensor_d435 parent="Camera_Top_1" name="rs_top" use_nominal_extrinsics="$(arg use_nominal_extrinsics)" use_mesh="$(arg use_mesh)">
-    <origin xyz="0 0 0" rpy="0 0.349066 0"/> 
+    <origin xyz="0 0 0" rpy="0 0 0"/> 
   </xacro:sensor_d435>
 
   <xacro:sensor_d435 parent="Camera_Bottom_1" name="rs_bottom" use_nominal_extrinsics="$(arg use_nominal_extrinsics)" use_mesh="$(arg use_mesh)">
-    <origin xyz="0 0 0" rpy="0 0 0" /> 
+    <origin xyz="0 0 0" rpy="0 -0.436332  0" /> 
   </xacro:sensor_d435>
-  -->
 
 // Copyright 2022 Stereolabs
 //
@@ -46,7 +44,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+<!--
   <xacro:arg name="camera_name"   default="zedm" />
   <xacro:arg name="camera_model"  default="zedm" />
   <xacro:arg name="base_frame"    default="Camera_Top_1" />
@@ -62,7 +60,7 @@
   <xacro:zed_camera name="zedm_top" model="$(arg camera_model)">
   </xacro:zed_camera>
   <joint name="Camera_IMU_Top_joint_f" type="fixed">
-    <origin xyz="0 0 0" rpy="0 0.349066 0"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
     <child link="zedm_top_camera_link"/>
     <parent link="Camera_Top_1"/>
   </joint>
@@ -74,4 +72,5 @@
     <child link="zedm_bottom_camera_link"/>
     <parent link="Camera_Bottom_1"/>
   </joint>
+-->
 </robot>

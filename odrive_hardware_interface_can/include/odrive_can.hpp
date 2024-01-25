@@ -131,6 +131,8 @@ public:
     void can_set_input_torque(int32_t can_id, float input_torque);
     void can_set_input_vel_torque(int32_t can_id, float input_vel, float input_torque);
     void can_set_position(int32_t can_id, float input_pos, uint8_t input_vel, uint8_t input_torque); 
+    void can_set_absolute_position(int32_t can_id, float abs_pos);
+    void can_set_vel_gains(int32_t can_id, float val_gain, float vel_integrator_gain);
     void can_init(std::string *can_tty, int can_speed, atomic_variables *hw_atomics, std::map<int32_t,int32_t> *canid_axis) {
         hw_atomics_ = hw_atomics;
         hw_atomics_->active = true;

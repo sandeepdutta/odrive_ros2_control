@@ -12,6 +12,8 @@ hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_init(const har
 
   can_ids_.resize(info_.joints.size(),-1);
   axes_.resize(info_.joints.size(),-1);
+  vel_gain_.resize(info_.joints.size(),std::numeric_limits<float>::quiet_NaN());
+  vel_integrator_gain_.resize(info_.joints.size(),std::numeric_limits<float>::quiet_NaN());
   torque_constants_.resize(info_.joints.size(),-1);
   reverse_control_.resize(info_.joints.size(), false);
   enable_watchdogs_.resize(info_.joints.size());
@@ -24,6 +26,9 @@ hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_init(const har
   hw_axis_errors_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_motor_temperatures_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_motor_current_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+  hw_cmd_vel_zero_.resize(info_.joints.size(),true);
+  hw_vel_prev_value_.resize(info_.joints.size(),0.0);
+  hw_vel_suppress_.resize(info_.joints.size(),false);
   // command interfaces
   hw_commands_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_commands_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
@@ -41,10 +46,17 @@ hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_init(const har
     reverse_control_[i]  = std::stoi(info_.joints[i].parameters.at("reverse_control")) ? true : false;
     axes_[i] = std::stoi(info_.joints[i].parameters.at("axis"));
     can_ids_[i] = std::stoi(info_.joints[i].parameters.at("can_id"));
+    vel_gain_[i] = std::stof(info_.joints[i].parameters.at("vel_gain"));
+    vel_integrator_gain_[i] = std::stof(info_.joints[i].parameters.at("vel_integrator_gain"));
     canid_axis_[can_ids_[i]] = axes_[i]; 
-    ROS_INFO("can id %d mapped to axis %d reversed %s", can_ids_[i], axes_[i], (reverse_control_[i] ? "true" : "false"));
+    ROS_INFO("Can id %d mapped to axis %d reversed %s vel_gain %f vel_integrator gain %f", 
+             can_ids_[i], 
+             axes_[i], 
+             (reverse_control_[i] ? "true" : "false"),
+             vel_gain_[i],
+             vel_integrator_gain_[i]);
   }
-  odrive_can_.can_init(can_tty_, can_speed_, &hw_atomics_, &canid_axis_); // open and initialize the can <-> serila interface
+  odrive_can_.can_init(can_tty_, can_speed_, &hw_atomics_, &canid_axis_); // open and initialize the can <-> serial interface
   // start the odrive thread
   can_thread_ptr_ = new std::thread(can_thread,&odrive_can_);
   control_level_.resize(info_.joints.size(), integration_level_t::UNDEFINED);
@@ -163,8 +175,12 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::perform_command_mode
 hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_activate(const rclcpp_lifecycle::State & /*previous_state*/)
 {
   ROS_INFO("Activate called ...");
-
-
+  // reset positions to zero
+  for (size_t i = 0; i < info_.joints.size(); i++) {
+    odrive_can_.can_set_absolute_position(can_ids_[i],0.0);
+    odrive_can_.can_set_vel_gains(can_ids_[i],vel_gain_[i], vel_integrator_gain_[i]);
+  }
+  ROS_INFO("Absolute position reset ...");
   //status_ = hardware_interface::status::STARTED;
   return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -194,6 +210,21 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::read(
     hw_axis_errors_[i]        = hw_atomics_.axis_errors_[i].load(std::memory_order_relaxed);
     hw_motor_temperatures_[i] =  hw_atomics_.motor_temperatures_[i].load(std::memory_order_relaxed);
     hw_motor_current_[i]      =  hw_atomics_.motor_currents_[i].load(std::memory_order_relaxed);
+    if (hw_cmd_vel_zero_[i]) {
+      if (!hw_vel_suppress_[i]) {
+        // then check for jitter (sign changed): or it came very close to zero
+        if (std::signbit(hw_velocities_[i]) != std::signbit(hw_vel_prev_value_[i]) ||
+            abs(hw_velocities_[i]) < 0.0000001) {
+          hw_vel_suppress_[i] = true;
+          hw_velocities_[i] = 0.0;
+        }
+      } else {
+        hw_velocities_[i] = 0.0;
+      }
+    } else {
+      hw_vel_suppress_[i] = false;
+    }
+    hw_vel_prev_value_[i] = hw_velocities_[i];
   }
 
   return hardware_interface::return_type::OK;
@@ -215,6 +246,12 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::write(
       input_vel = (hw_commands_velocities_[i] / 2 / M_PI) * (reverse_control_[i] ? -1.0 : 1.0);
       ROS_DEBUG("::write %ld VELOCITY %f", i,input_vel);
       odrive_can_.can_set_input_vel_torque(can_ids_[i], input_vel, 0.0);
+      // record if we are asking it to stop
+      if (abs(hw_commands_velocities_[i]) < 0.0000001) {
+        hw_cmd_vel_zero_[i] = true;
+      } else {
+        hw_cmd_vel_zero_[i] = false;
+      }
       break;
     case integration_level_t::EFFORT:
       input_torque = hw_commands_efforts_[i] * (reverse_control_[i] ? -1.0 : 1.0);
