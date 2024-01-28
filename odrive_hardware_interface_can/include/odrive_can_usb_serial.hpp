@@ -30,14 +30,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include <odrive_enums.hpp>
 #include "byte_swap.hpp"
-#include <net/if.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-
-#include <linux/can.h>
-#include <linux/can/raw.h>
-#include <string>
-#include <functional>
 #define CANUSB_INJECT_SLEEP_GAP_DEFAULT 200 /* ms */
 #define CANUSB_TTY_BAUD_RATE_DEFAULT 2000000
 #define MAX_AXIS    2
@@ -103,19 +95,24 @@ typedef struct atomic_variables {
     std::atomic<bool>     active;
 } atomic_variables;
 
+typedef struct can_frame {
+    uint8_t     _sof;     /* */
+    uint8_t     _dlc ;      /* data length code */
+    uint16_t    _frame_id;  /* */
+    uint8_t     _data[MAX_CAN_FRAME_SIZE];
+} can_frame;
+
 class odrive_can {
 private:
-    int can_adapter_init(std::string &can_interface);
+    int can_adapter_init(const char *tty, int baud, int can_speed);
     // can send frame 
     int  can_send_frame(uint32_t can_id, uint32_t cmd_id, can_frame *data, int32_t len);    
     // check if frame being received is complete
     bool can_frame_complete(const uint8_t *frame, int frame_len);
 
 public:
-    // interface name
-    std::string interface_;
     atomic_variables *hw_atomics_;
-    int can_fd_ = -1;
+    int can_fd_;
     std::map<int32_t, int32_t> *canid_axis_;
     
     odrive_can() {}
@@ -136,12 +133,11 @@ public:
     void can_set_position(int32_t can_id, float input_pos, uint8_t input_vel, uint8_t input_torque); 
     void can_set_absolute_position(int32_t can_id, float abs_pos);
     void can_set_vel_gains(int32_t can_id, float val_gain, float vel_integrator_gain);
-    void can_init(std::string &can_interface, int can_speed, atomic_variables *hw_atomics, std::map<int32_t,int32_t> *canid_axis) {
+    void can_init(std::string *can_tty, int can_speed, atomic_variables *hw_atomics, std::map<int32_t,int32_t> *canid_axis) {
         hw_atomics_ = hw_atomics;
         hw_atomics_->active = true;
         canid_axis_ = canid_axis;
-        interface_ = can_interface;
-        if ((can_fd_ = can_adapter_init(can_interface)) < 0) {
+        if ((can_fd_ = can_adapter_init(can_tty->c_str(), CANUSB_TTY_BAUD_RATE_DEFAULT, can_speed)) < 0) {
             return;
         }
         ROS_INFO("Can interface initizatized %d",can_fd_);
@@ -150,6 +146,12 @@ public:
     int can_recv_frame(int32_t &can_id, int32_t &cmd_id, uint8_t *frame );
 };
 
+inline bool verify_length(const std::string&name, uint8_t expected, uint8_t length) {
+    bool valid = expected == length;
+    RCLCPP_DEBUG(rclcpp::get_logger("ODriveHardwareInterfaceCAN"), "received %s", name.c_str());
+    if (!valid) RCLCPP_WARN(rclcpp::get_logger("ODriveHardwareInterfaceCAN"), "Incorrect %s frame length: %d != %d", name.c_str(), length, expected);
+    return valid;
+}
 // main thread for the can controller
 void can_thread(odrive_can *) ;
 #endif // ODRIVE_CAN_HPP_

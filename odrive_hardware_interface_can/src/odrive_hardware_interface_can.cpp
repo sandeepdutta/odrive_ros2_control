@@ -36,9 +36,9 @@ hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_init(const har
 
   /* odrive global parameters */
   for (const hardware_interface::ComponentInfo & sensor : info_.sensors) {
-    can_tty_ = new std::string(sensor.parameters.at("can_tty"));
+    odrive_can_.interface_ = std::string(sensor.parameters.at("can_interface"));
     can_speed_ = std::stoi(sensor.parameters.at("can_speed"));
-    ROS_INFO(" can_tty %s, can_speed %d",can_tty_->c_str(), can_speed_);
+    ROS_INFO(" can_interface %s, can_speed %d",odrive_can_.interface_.c_str(), can_speed_);
   }
   /* axis related parameters */
   /* &&  create the canid <--> axis map */
@@ -56,7 +56,7 @@ hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_init(const har
              vel_gain_[i],
              vel_integrator_gain_[i]);
   }
-  odrive_can_.can_init(can_tty_, can_speed_, &hw_atomics_, &canid_axis_); // open and initialize the can <-> serial interface
+  odrive_can_.can_init(odrive_can_.interface_, can_speed_, &hw_atomics_, &canid_axis_); // open and initialize the can <-> serial interface
   // start the odrive thread
   can_thread_ptr_ = new std::thread(can_thread,&odrive_can_);
   control_level_.resize(info_.joints.size(), integration_level_t::UNDEFINED);
@@ -143,7 +143,7 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::perform_command_mode
       case integration_level_t::EFFORT:
         hw_commands_efforts_[i] = 0; // hw_efforts_[i];
         odrive_can_.can_set_control_mode(can_ids_[i],CONTROL_MODE_TORQUE_CONTROL, INPUT_MODE_PASSTHROUGH);
-        odrive_can_.can_set_input_torque(can_ids_[i], (hw_commands_efforts_[i] * (reverse_control_[i] ? -1.0 : 1.0)));
+        //odrive_can_.can_set_input_torque(can_ids_[i], (hw_commands_efforts_[i] * (reverse_control_[i] ? -1.0 : 1.0)));
         odrive_can_.can_request_state(can_ids_[i],AXIS_STATE_CLOSED_LOOP_CONTROL);
         break;
 
@@ -153,7 +153,7 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::perform_command_mode
         odrive_can_.can_set_control_mode(can_ids_[i],CONTROL_MODE_VELOCITY_CONTROL, INPUT_MODE_PASSTHROUGH);
         input_vel = (hw_commands_velocities_[i] / 2 / M_PI) * (reverse_control_[i] ? -1.0 : 1.0);
         input_torque = hw_commands_efforts_[i] * (reverse_control_[i] ? -1.0 : 1.0);
-        odrive_can_.can_set_input_vel_torque(can_ids_[i], input_vel, input_torque);
+        //odrive_can_.can_set_input_vel_torque(can_ids_[i], input_vel, input_torque);
         odrive_can_.can_request_state(can_ids_[i],AXIS_STATE_CLOSED_LOOP_CONTROL);
         break;
 
@@ -163,7 +163,7 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::perform_command_mode
         hw_commands_efforts_[i] = 0;
         odrive_can_.can_set_control_mode(can_ids_[i],CONTROL_MODE_POSITION_CONTROL, INPUT_MODE_PASSTHROUGH);
         input_pos = (hw_commands_positions_[i] / 2 / M_PI) * (reverse_control_[i] ? -1.0 : 1.0);
-        odrive_can_.can_set_position(can_ids_[i],input_pos,0,0);
+        //odrive_can_.can_set_position(can_ids_[i],input_pos,0,0);
         odrive_can_.can_request_state(can_ids_[i],AXIS_STATE_CLOSED_LOOP_CONTROL);
         break;
     }
