@@ -110,11 +110,11 @@ def generate_launch_description():
             executable="spawner",
             arguments=["diffbot_base_controller", "-c", "/controller_manager","--controller-manager-timeout","50"]
         ),
-#        Node (
-#            package="topic_tools",
-#            executable="relay",
-#            arguments=["/cmd_vel","/diffbot_base_controller/cmd_vel_unstamped"]
-#        ),
+        Node (
+            package="topic_tools",
+            executable="relay",
+            arguments=["/cmd_vel","/diffbot_base_controller/cmd_vel_unstamped"]
+        ),
 #        Node (
 #            package="topic_tools",
 #            executable="relay",
