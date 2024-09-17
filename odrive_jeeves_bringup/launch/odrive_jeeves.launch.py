@@ -16,11 +16,10 @@ from launch import LaunchDescription
 from launch.substitutions import Command, FindExecutable, PathJoinSubstitution, LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.actions import GroupAction
 
 def generate_launch_description():
-    # slave=True means Gazebo will drive the robot
     slave = LaunchConfiguration("slave", default="False")
 
     robot_description_content = Command(
@@ -29,7 +28,7 @@ def generate_launch_description():
             " ",
             PathJoinSubstitution(
                 [
-                    FindPackageShare("odrive_jeeves_description"),
+                    FindPackageShare("jeeves_sim_description"),
                     "urdf",
                     "odrive_jeeves.urdf.xacro"
                 ]
@@ -46,88 +45,46 @@ def generate_launch_description():
         ]
     )
 
-    rviz_config_file = PathJoinSubstitution(
-        [
-            FindPackageShare("diffbot_description"),
-            "config",
-            "diffbot.rviz"
-        ]
-    )
-
     control_node = Node(
         package="controller_manager",
         executable="ros2_control_node",
+        condition=UnlessCondition(slave),
         parameters=[robot_description, robot_controllers],
         #prefix="gdbserver localhost:2020 ",
         #arguments=['--ros-args','--log-level','DEBUG'],
         output="both",
     )
 
-    robot_state_pub_node = GroupAction([
-        Node(
-            condition=IfCondition(slave),
+    robot_state_pub_node =  Node(
             namespace="slave",
             package="robot_state_publisher",
             executable="robot_state_publisher",
             output="both",
             parameters=[robot_description]
-        ),
-        Node(
-            condition=IfCondition(PythonExpression(['not ',slave])),
-            package="robot_state_publisher",
-            executable="robot_state_publisher",
-            output="both",
-            parameters=[robot_description]
         )
-    ])
 
-    joint_state_broadcaster_spawner = GroupAction([
-        Node(
-            condition=IfCondition(slave),
-            namespace="slave",
+    joint_state_broadcaster_spawner = Node(
             package="controller_manager",
             executable="spawner",
-            arguments=["joint_state_broadcaster", "-c", "/controller_manager","--controller-manager-timeout","50"]
-        ),
-        Node(
-            condition=IfCondition(PythonExpression(['not ',slave])),
-            package="controller_manager",
-            executable="spawner",
+            condition=UnlessCondition(slave),
             arguments=["joint_state_broadcaster", "-c", "/controller_manager","--controller-manager-timeout","50"]
         )
-    ])
+
     robot_controller_spawner = GroupAction([
         Node(
-            condition=IfCondition(slave),
+            condition=UnlessCondition(slave),
             namespace="slave",
-            package="controller_manager",
-            executable="spawner",
-            arguments=["diffbot_base_controller", "-c", "/controller_manager","--controller-manager-timeout","50"]
-        ),
-        Node(
-            condition=IfCondition(PythonExpression(['not ',slave])),
             package="controller_manager",
             executable="spawner",
             arguments=["diffbot_base_controller", "-c", "/controller_manager","--controller-manager-timeout","50"]
         ),
         Node (
             package="topic_tools",
+            condition=UnlessCondition(slave),
             executable="relay",
             arguments=["/cmd_vel","/diffbot_base_controller/cmd_vel_unstamped"]
-        ),
-#        Node (
-#            package="topic_tools",
-#            executable="relay",
-#            arguments=["/diffbot_base_controller/odom","/odom"]
-#        )
+        )
     ])
-
-    #rviz_node = Node(
-    #    package="rviz2",
-    #    executable="rviz2",
-    #    name="rviz2",
-    #    arguments=["-d", rviz_config_file],
-    #)
 
     return LaunchDescription([
         control_node,
