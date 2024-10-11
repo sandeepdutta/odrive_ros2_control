@@ -56,7 +56,7 @@ def generate_launch_description():
     )
 
     robot_state_pub_node =  Node(
-            namespace="slave",
+            namespace="",
             package="robot_state_publisher",
             executable="robot_state_publisher",
             output="both",
@@ -73,7 +73,7 @@ def generate_launch_description():
     robot_controller_spawner = GroupAction([
         Node(
             condition=UnlessCondition(slave),
-            namespace="slave",
+            namespace="",
             package="controller_manager",
             executable="spawner",
             arguments=["diffbot_base_controller", "-c", "/controller_manager","--controller-manager-timeout","50"]
