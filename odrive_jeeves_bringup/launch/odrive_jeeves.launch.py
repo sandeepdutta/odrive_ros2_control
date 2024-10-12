@@ -76,6 +76,8 @@ def generate_launch_description():
             namespace="",
             package="controller_manager",
             executable="spawner",
+            output="both",
+            #prefix="gdbserver localhost:2020 ",
             arguments=["diffbot_base_controller", "-c", "/controller_manager","--controller-manager-timeout","50"]
         ),
         Node (

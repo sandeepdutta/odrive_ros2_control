@@ -29,6 +29,8 @@ hardware_interface::CallbackReturn ODriveHardwareInterfaceCAN::on_init(const har
   hw_cmd_vel_zero_.resize(info_.joints.size(),true);
   hw_vel_prev_value_.resize(info_.joints.size(),0.0);
   hw_vel_suppress_.resize(info_.joints.size(),false);
+  hw_sent_count_.resize(info_.joints.size(),0);
+  hw_received_count_.resize(info_.joints.size(),0);
   // command interfaces
   hw_commands_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_commands_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
@@ -75,10 +77,12 @@ std::vector<hardware_interface::StateInterface> ODriveHardwareInterfaceCAN::expo
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, hardware_interface::HW_IF_POSITION, &hw_positions_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, "axis_error", &hw_axis_errors_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, "motor_temperature", &hw_motor_temperatures_[i]));
-    state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, "motor_current", &hw_motor_temperatures_[i]));
+    state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, "motor_current", &hw_motor_current_[i]));
+    state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, "sent_count", &hw_sent_count_[i]));
+    state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name, "received_count", &hw_received_count_[i]));
   }
   ROS_INFO("States exported ..");
-  return state_interfaces;
+  return state_interfaces; 
 }
 
 std::vector<hardware_interface::CommandInterface> ODriveHardwareInterfaceCAN::export_command_interfaces()
@@ -225,6 +229,8 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::read(
       hw_vel_suppress_[i] = false;
     }
     hw_vel_prev_value_[i] = hw_velocities_[i];
+    hw_sent_count_[i] = hw_atomics_.sent_count_[i].load(std::memory_order_relaxed);
+    hw_received_count_[i] = hw_atomics_.received_count_[i].load(std::memory_order_relaxed);
   }
 
   return hardware_interface::return_type::OK;

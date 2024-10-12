@@ -100,6 +100,8 @@ typedef struct atomic_variables {
     std::atomic<bool>     trajectory_done_flag_[MAX_AXIS]; 
     std::atomic<uint32_t> disarm_reason_       [MAX_AXIS];
     std::atomic<bool>     axis_debug_          [MAX_AXIS];
+    std::atomic<uint32_t> received_count_      [MAX_AXIS]; /// can receive count will overflow
+    std::atomic<uint32_t> sent_count_          [MAX_AXIS]; /// can send count will overflow
     std::atomic<bool>     active;
 } atomic_variables;
 

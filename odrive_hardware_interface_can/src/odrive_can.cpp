@@ -95,7 +95,7 @@ void can_thread(odrive_can *oc) {
         // if we cannot determine the frame then continue
         if (cmd_id == -1) continue;
         int axis = (*(oc->canid_axis_))[can_id];
-
+        oc->hw_atomics_->received_count_[axis]++;
         switch(cmd_id) {
         case CmdId::kHeartbeat: {
             oc->hw_atomics_->active_errors_       [axis] = read_le<uint32_t>(frame.data + 0);
@@ -172,6 +172,8 @@ int odrive_can::can_send_frame(uint32_t can_id, uint32_t cmd_id, can_frame *fram
     if (bytes != sizeof(can_frame)) {
         ROS_ERROR("can_send_frame error %d %s",can_fd_,strerror(errno));
     }
+    int axis = (*(canid_axis_))[can_id];
+    hw_atomics_->sent_count_[axis]++;
     return bytes;
 }
 

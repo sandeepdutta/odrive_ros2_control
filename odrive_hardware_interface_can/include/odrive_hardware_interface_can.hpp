@@ -99,6 +99,8 @@ private:
   std::vector<double> hw_commands_positions_;
   std::vector<double> hw_commands_velocities_;
   std::vector<double> hw_commands_efforts_;
+  std::vector<double> hw_sent_count_;
+  std::vector<double> hw_received_count_;
   // shared with can interface thread
   struct atomic_variables hw_atomics_;
   // thread pointer
