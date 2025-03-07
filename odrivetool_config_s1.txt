@@ -21,7 +21,7 @@ odrv0.axis0.controller.config.control_mode = CONTROL_MODE_VELOCITY_CONTROL # Def
 odrv0.axis0.requested_state = AxisState.MOTOR_CALIBRATION
 odrv0.save_configuration()
 # thermistor must be connected
-odrv0.axis0.motor_thermistor.config.enabled = True
+#odrv0.axis0.motor_thermistor.config.enabled = True
 odrv0.save_configuration()
 
 # Current Limits
@@ -56,7 +56,6 @@ odrv0.axis0.config.can.encoder_msg_rate_ms      = 50    # 20 HZ (uint32)
 odrv0.axis0.config.can.error_msg_rate_ms        = 1000  # 1 HZ (uint32)
 odrv0.axis0.config.can.heartbeat_msg_rate_ms    = 100   # 10 HZ (uint32)
 odrv0.axis0.config.can.iq_msg_rate_ms           = 1000  # 1 HZ (uint32)
-odrv0.axis0.config.can.is_extended              = False
 odrv0.axis0.config.can.temperature_msg_rate_ms  = 1000  # 1 HZ (uint32)
 odrv0.axis0.config.can.torques_msg_rate_ms      = 0     # Disabled (uint32)
 odrv0.axis0.config.can.version_msg_rate_ms      = 0     # Disabled (uint32)
