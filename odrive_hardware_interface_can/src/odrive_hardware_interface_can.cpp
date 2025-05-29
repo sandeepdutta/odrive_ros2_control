@@ -218,7 +218,7 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::read(
       if (!hw_vel_suppress_[i]) {
         // then check for jitter (sign changed): or it came very close to zero
         if (std::signbit(hw_velocities_[i]) != std::signbit(hw_vel_prev_value_[i]) ||
-            abs(hw_velocities_[i]) < 0.0000001) {
+            abs(hw_velocities_[i]) < 1.e-4) {
           hw_vel_suppress_[i] = true;
           hw_velocities_[i] = 0.0;
         }
@@ -253,7 +253,7 @@ hardware_interface::return_type ODriveHardwareInterfaceCAN::write(
       ROS_DEBUG("::write %ld VELOCITY %f", i,input_vel);
       odrive_can_.can_set_input_vel_torque(can_ids_[i], input_vel, 0.0);
       // record if we are asking it to stop
-      if (abs(hw_commands_velocities_[i]) < 0.0000001) {
+      if (abs(hw_commands_velocities_[i]) < 1.e-4) {
         hw_cmd_vel_zero_[i] = true;
       } else {
         hw_cmd_vel_zero_[i] = false;
