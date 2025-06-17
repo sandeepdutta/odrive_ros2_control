@@ -14,6 +14,7 @@ enum CmdId : uint32_t {
     kSetInputPos,                  // ControlMessage    - subscriber
     kSetInputVel,                  // ControlMessage    - subscriber
     kSetInputTorque,               // ControlMessage    - subscriber
+    kSetLimits = 0x00f,            // ControlMessage    - subscriber
     kGetIq = 0x014,                // ControllerStatus  - publisher
     kGetTemp,                      // SystemStatus      - publisher
     kGetBusVoltageCurrent = 0x017, // SystemStatus      - publisher
