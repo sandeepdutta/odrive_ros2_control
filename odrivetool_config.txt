@@ -1,18 +1,38 @@
 
 odrv0.config.enable_brake_resistor = True
 odrv0.config.brake_resistance = 2.0
+odrv.config.dc_bus_overvoltage_trip_level = 24
+odrv.config.dc_bus_undervoltage_trip_level = 10.5
+odrv.config.dc_max_positive_current = 5
+odrv.config.dc_max_negative_current = -10
 ###
 ### - AXIS 0
 ###
-
+odrv0.axis0.config.motor.motor_type = MotorType.HIGH_CURRENT
 odrv0.axis0.motor.config.pole_pairs = 15
 odrv0.axis0.motor.config.resistance_calib_max_voltage = 4
 odrv0.axis0.motor.config.requested_current_range = 25 #Requires config save and reboot
 odrv0.axis0.motor.config.current_control_bandwidth = 100
 odrv0.axis0.motor.config.torque_constant = 8.27 / 16
+odrv0.axis0.config.motor.calibration_current = 3.3333333333333335
+odrv0.axis0.config.motor.resistance_calib_max_voltage = 4
+odrv0.axis0.motor.motor_thermistor.config.enabled = True
+odrv0.axis0.motor.motor_thermistor.config.r_ref = 20000
+odrv0.axis0.motor.motor_thermistor.config.beta = 3950
+odrv0.axis0.motor.motor_thermistor.config.temp_limit_lower = 110
+odrv0.axis0.motor.motor_thermistor.config.temp_limit_upper = 130
+
 odrv0.axis0.encoder.config.mode = ENCODER_MODE_HALL
 odrv0.axis0.encoder.config.cpr = 90
 odrv0.axis0.encoder.config.calib_scan_distance = 150
+odrv0.inc_encoder0.config.enabled = True
+odrv0.axis0.config.load_encoder = EncoderId.INC_ENCODER0
+odrv0.inc_encoder0.config.cpr = 3200
+odrv0.axis0.pos_vel_mapper.config.use_index_gpio = False
+odrv0.axis0.config.encoder_bandwidth = 100
+odrv0.hall_encoder0.config.enabled = True
+odrv0.axis0.config.commutation_encoder = EncoderId.HALL_ENCODER0
+
 odrv0.config.gpio9_mode = GPIO_MODE_DIGITAL
 odrv0.config.gpio10_mode = GPIO_MODE_DIGITAL
 odrv0.config.gpio11_mode = GPIO_MODE_DIGITAL
