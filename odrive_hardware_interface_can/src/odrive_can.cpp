@@ -98,7 +98,7 @@ void can_thread(odrive_can *oc) {
         oc->hw_atomics_->received_count_[axis]++;
         switch(cmd_id) {
         case CmdId::kHeartbeat: {
-            oc->hw_atomics_->active_errors_       [axis] = read_le<uint32_t>(frame.data + 0);
+            oc->hw_atomics_->axis_errors_       [axis] = read_le<uint32_t>(frame.data + 0);
             oc->hw_atomics_->axis_state_          [axis] = read_le<uint8_t>(frame.data + 4);
             oc->hw_atomics_->procedure_result_    [axis] = read_le<uint8_t>(frame.data + 5);
             oc->hw_atomics_->trajectory_done_flag_[axis] = read_le<bool>(frame.data + 6);
@@ -111,7 +111,7 @@ void can_thread(odrive_can *oc) {
             break;
         }
         case CmdId::kGetError: {
-            oc->hw_atomics_->active_errors_ [axis] = read_le<uint32_t>(frame.data + 0);
+            oc->hw_atomics_->axis_errors_ [axis] = read_le<uint32_t>(frame.data + 0);
             oc->hw_atomics_->disarm_reason_ [axis] = read_le<uint32_t>(frame.data + 4);
             break;
         }

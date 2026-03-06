@@ -1,5 +1,5 @@
 odrv = odrv0
-odrv.config.dc_bus_overvoltage_trip_level = 24
+odrv.config.dc_bus_overvoltage_trip_level = 30
 odrv.config.dc_bus_undervoltage_trip_level = 10.5
 odrv.config.dc_max_positive_current = 5
 odrv.config.dc_max_negative_current = -10
@@ -9,8 +9,8 @@ odrv.axis0.config.motor.current_control_bandwidth = 100
 odrv.axis0.config.motor.motor_type = MotorType.HIGH_CURRENT
 odrv.axis0.config.motor.pole_pairs = 15
 odrv.axis0.config.motor.torque_constant = 0.9505747126436782
-odrv.axis0.config.motor.current_soft_max = 16
-odrv.axis0.config.motor.current_hard_max = 30.8
+odrv.axis0.config.motor.current_soft_max = 5
+odrv.axis0.config.motor.current_hard_max = 10
 odrv.axis0.config.motor.calibration_current = 3.3333333333333335
 odrv.axis0.config.motor.resistance_calib_max_voltage = 4
 odrv.axis0.config.calibration_lockin.current = 3.3333333333333335

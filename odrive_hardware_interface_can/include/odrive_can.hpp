@@ -94,7 +94,6 @@ typedef struct atomic_variables {
     std::atomic<float>   motor_temperatures_  [MAX_AXIS] ;
     std::atomic<float>   fet_temperatures_    [MAX_AXIS] ;
     std::atomic<float>   motor_currents_      [MAX_AXIS] ;
-    std::atomic<uint32_t> active_errors_       [MAX_AXIS];
     std::atomic<uint8_t>  axis_state_          [MAX_AXIS];
     std::atomic<uint8_t>  procedure_result_    [MAX_AXIS];
     std::atomic<bool>     trajectory_done_flag_[MAX_AXIS]; 
