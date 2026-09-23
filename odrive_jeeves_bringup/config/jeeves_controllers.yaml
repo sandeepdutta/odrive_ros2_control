@@ -14,8 +14,8 @@ joint_state_broadcaster:
 
 diffbot_base_controller:
   ros__parameters:
-    left_wheel_names: ["Left_Wheel_joint"]
-    right_wheel_names: ["Right_Wheel_joint"]
+    left_wheel_names: ["Left_Wheel_Joint"]
+    right_wheel_names: ["Right_Wheel_Joint"]
 
     wheel_separation: 0.366
     wheels_per_side: 1  
